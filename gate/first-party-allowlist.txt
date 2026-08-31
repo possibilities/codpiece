@@ -1,0 +1,4 @@
+# One reviewed Codex workspace package per line. The first slim implementation
+# may extend this list in the paired Workshop commit, but the gate rejects every
+# undeclared codex-* dependency.
+codex-voice-sidecar
