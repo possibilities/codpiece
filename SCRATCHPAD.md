@@ -45,6 +45,9 @@ baseline until the first voice-sidecar candidate has actually passed its gate.
   eda09b44e2a87ad0dfaa9e03a0e05787616856ad is 3,563,472 binary bytes and
   129 unique normal/build packages. Those exact values are the initial
   zero-slack growth budgets.
+- Production selected-workspace support at
+  fe3bad9abfe0be8e662604694dfc99536a70dbb3 adds 16 binary bytes, for a
+  reviewed 3,563,488-byte budget; the dependency budget remains 129.
 
 ## History
 
@@ -52,3 +55,5 @@ baseline until the first voice-sidecar candidate has actually passed its gate.
   publication has yet occurred.
 - 2026-08-31: Established the first stripped voice-sidecar size and dependency
   budgets from the constrained local measurement gate.
+- 2026-08-31: Expanded the binary budget by 16 bytes for validated ChatGPT
+  selected-workspace authorization; package count did not change.
