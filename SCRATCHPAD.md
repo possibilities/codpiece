@@ -41,8 +41,14 @@ baseline until the first voice-sidecar candidate has actually passed its gate.
 - Constrained Rust builds are mandatory: at most two Cargo jobs, release LTO
   disabled, one release codegen unit, stripped packaged symbols, and
   Scratch-backed target data.
+- The first stripped slim-build measurement at
+  eda09b44e2a87ad0dfaa9e03a0e05787616856ad is 3,563,472 binary bytes and
+  129 unique normal/build packages. Those exact values are the initial
+  zero-slack growth budgets.
 
 ## History
 
 - 2026-08-30: Workshop repository initialized. No maintenance cycle or product
   publication has yet occurred.
+- 2026-08-31: Established the first stripped voice-sidecar size and dependency
+  budgets from the constrained local measurement gate.

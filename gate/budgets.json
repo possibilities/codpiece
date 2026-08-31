@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "binaryBytesMax": null,
-  "dependencyCountMax": null,
-  "status": "awaiting-first-slim-build"
+  "binaryBytesMax": 3563472,
+  "dependencyCountMax": 129,
+  "status": "enforced"
 }
