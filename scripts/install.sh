@@ -76,7 +76,7 @@ if [ "$mode" = check ]; then
         "  checkout: $checkout" \
         "  source: fork/integration ($display_fork_url), exact full SHA only" \
         '  authority: current-contract ship receipt chained to local-build and artifact receipts with clean AgentVoice validator provenance' \
-        "  build: detached $package, two Cargo jobs, release LTO off, one codegen unit" \
+        "  build: detached $package, two Cargo jobs, release LTO off, one codegen unit, symbols stripped" \
         "  target: SHA-isolated directories under $target_base" \
         "  install: immutable version under $install_root" \
         "  atomic consumer pointer: $current_link" \
@@ -349,6 +349,7 @@ export CARGO_BUILD_JOBS=2
 export CARGO_TARGET_DIR="$target_dir"
 export CARGO_PROFILE_RELEASE_LTO=false
 export CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1
+export CARGO_PROFILE_RELEASE_STRIP=symbols
 export CARGO_INCREMENTAL=0
 cargo build --locked --manifest-path "$manifest" -p "$package" --release
 built_binary="$target_dir/release/$package"

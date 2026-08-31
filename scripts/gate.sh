@@ -81,9 +81,11 @@ export CARGO_BUILD_JOBS=2
 export CARGO_TARGET_DIR="$target_dir"
 export CARGO_PROFILE_RELEASE_LTO=false
 export CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1
+export CARGO_PROFILE_RELEASE_STRIP=symbols
 export CARGO_INCREMENTAL=0
 
 tree_file=$(mktemp "${TMPDIR:-/tmp}/codpiece-tree.XXXXXX")
+package_file=$(mktemp "${TMPDIR:-/tmp}/codpiece-packages.XXXXXX")
 first_party_file=$(mktemp "${TMPDIR:-/tmp}/codpiece-first-party.XXXXXX")
 pending_receipt=
 pending_metadata=
@@ -91,7 +93,7 @@ lock_held=0
 cleanup() {
     local status=$? cleanup_failed=0
     trap - EXIT
-    rm -f -- "$tree_file" "$first_party_file" || cleanup_failed=1
+    rm -f -- "$tree_file" "$package_file" "$first_party_file" || cleanup_failed=1
     if [ -n "$pending_receipt" ] && [ -e "$pending_receipt" ]; then
         rm -f -- "$pending_receipt" || cleanup_failed=1
     fi
@@ -120,12 +122,15 @@ printf 'LOCAL-BUILD %-24s %s\n' tests "$candidate_sha"
     || die "just fix or just fmt changed the candidate; review and commit those changes before gating"
 
 cargo tree --locked --manifest-path "$manifest" -p "$package" \
-    --edges normal,build --prefix none >"$tree_file"
+    --edges normal,build --prefix none --format '{p}' >"$tree_file"
 dependency_graph_sha=$(shasum -a 256 "$tree_file" | awk '{print $1}')
-dependency_count=$(sed '/^[[:space:]]*$/d' "$tree_file" | sort -u | wc -l | tr -d ' ')
+sed 's/ (\*)$//; /^[[:space:]]*$/d' "$tree_file" \
+    | LC_ALL=C sort -u >"$package_file"
+dependency_count=$(wc -l <"$package_file" | tr -d ' ')
 [ "$dependency_count" -gt 0 ] || die "could not measure the resolved dependency graph"
 
-awk '$1 ~ /^codex-/ { print $1 }' "$tree_file" | LC_ALL=C sort -u >"$first_party_file"
+awk '$1 ~ /^codex-/ { print $1 }' "$package_file" \
+    | LC_ALL=C sort -u >"$first_party_file"
 undeclared=$(comm -23 "$first_party_file" \
     <(sed '/^[[:space:]]*#/d; /^[[:space:]]*$/d' \
         "$root/gate/first-party-allowlist.txt" | LC_ALL=C sort -u))
@@ -255,7 +260,8 @@ jq -n \
       dependencyGraphSha256:$dependencyGraphSha256,
       agentVoiceProvenance:$agentVoiceProvenance,
       budgetsEnforced:$budgetsEnforced,
-      build:{cargoJobs:2,releaseLto:false,releaseCodegenUnits:1},
+      build:{cargoJobs:2,releaseLto:false,releaseCodegenUnits:1,
+        releaseStrip:"symbols"},
       recordedAt:$recordedAt}' >"$pending_receipt"
 chmod 0600 "$pending_receipt"
 mv "$pending_receipt" "$receipt"

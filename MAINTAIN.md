@@ -249,7 +249,8 @@ fails if either mutating command changes the committed candidate. It must:
 - run only tests for codex-voice-sidecar and its narrow transport modules;
 - build only codex-voice-sidecar in release mode;
 - use at most two Cargo jobs, disable release LTO, use one release codegen
-  unit, and keep target data under /Volumes/Scratch when available;
+  unit, strip packaged release symbols, and keep target data under
+  /Volumes/Scratch when available;
 - enforce the reviewed first-party dependency allowlist, reject forbidden
   dependency graphs and runtime notifications, and bind the full dependency
   graph hash;

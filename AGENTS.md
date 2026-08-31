@@ -79,8 +79,9 @@ moved under DELETEME/ without an explicit human decision naming it.
 
 This machine has already suffered severe memory pressure from unconstrained
 Codex release builds. Every Rust build for this project uses at most two Cargo
-jobs, release LTO disabled, one release codegen unit, and a target directory on
-/Volumes/Scratch when it is available. Never launch the full Codex suite,
+jobs, release LTO disabled, one release codegen unit, stripped release symbols,
+and a target directory on /Volumes/Scratch when it is available. Never launch
+the full Codex suite,
 parallel release builds, or an unconstrained workspace build.
 
 Start with targeted debug tests. Build the one release binary only after those

@@ -143,6 +143,7 @@ for required in \
     'detached codex-voice-sidecar' \
     'two Cargo jobs' \
     'release LTO off' \
+    'symbols stripped' \
     'SHA-isolated directories' \
     'atomic consumer pointer' \
     'installed receipt'; do
@@ -177,6 +178,8 @@ for script in scripts/gate.sh scripts/install.sh; do
         || fail "$script does not disable release LTO"
     grep -F 'CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1' "$script" >/dev/null \
         || fail "$script does not serialize release codegen"
+    grep -F 'CARGO_PROFILE_RELEASE_STRIP=symbols' "$script" >/dev/null \
+        || fail "$script does not strip packaged release symbols"
 done
 for gate in scripts/gate.sh scripts/artifact-gate.sh scripts/ship-gate.sh \
     scripts/install.sh; do
@@ -227,6 +230,10 @@ grep -F "just fix -p \"\$package\"" scripts/gate.sh >/dev/null \
     || fail "gate bypasses the upstream targeted-fix command"
 grep -F 'just fmt' scripts/gate.sh >/dev/null \
     || fail "gate bypasses upstream formatting"
+grep -F -- "--format '{p}'" scripts/gate.sh >/dev/null \
+    || fail "gate does not render stable Cargo package identities"
+grep -F "sed 's/ (\\*)\$//; /^[[:space:]]*\$/d'" scripts/gate.sh >/dev/null \
+    || fail "gate counts Cargo packages without canonicalizing duplicate markers"
 if grep -E 'cargo test' scripts/gate.sh >/dev/null; then
     fail "gate invokes cargo test directly"
 fi

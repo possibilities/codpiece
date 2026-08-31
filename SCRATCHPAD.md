@@ -39,7 +39,8 @@ baseline until the first voice-sidecar candidate has actually passed its gate.
 - The reference oracle uses voice protocol V3, gpt-live-1-codex, voice cove,
   intrinsic client delegation, and acknowledgement filler disabled.
 - Constrained Rust builds are mandatory: at most two Cargo jobs, release LTO
-  disabled, one release codegen unit, and Scratch-backed target data.
+  disabled, one release codegen unit, stripped packaged symbols, and
+  Scratch-backed target data.
 
 ## History
 
