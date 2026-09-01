@@ -17,7 +17,7 @@ die() {
 skill_dir="${MAINTAIN_SKILL_DIR:-$HOME/.local/share/agentstart/resources/skills/maintain}"
 script="$skill_dir/scripts/reconcile-branches.sh"
 if [ ! -f "$script" ]; then
-    die "the maintain skill is not installed at $skill_dir (run ~/code/agentstart/scripts/install.sh --install, or set MAINTAIN_SKILL_DIR)"
+    die "the maintain skill is not installed at $skill_dir (run ~/code/agentstart/scripts/sync-skills, or set MAINTAIN_SKILL_DIR)"
 fi
 
 checkout="${CODPIECE_CODEX_CHECKOUT:-$HOME/src/codex}"
