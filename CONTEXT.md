@@ -30,10 +30,12 @@ _Avoid_: tool call, optional handoff mode.
 refreshed, and persisted by Fx for both orchestration and voice access.
 _Avoid_: shared auth file, sidecar login.
 
-**Credential broker** — The private Fx Unix-socket service that resolves or
-refreshes a bounded access-token lease from Fx's opaque Codex session while
-keeping refresh tokens and store representations inside Fx.
-_Avoid_: auth proxy, AgentVoice RPC, credential file reader.
+**Credential broker** — The private persistent framed service on Fx's inherited
+descriptor 3 that resolves or refreshes a bounded access-token lease from Fx's
+opaque Codex session while keeping refresh tokens and store representations
+inside Fx. AgentVoice transfers the connected stream opaquely to one voice
+sidecar and never reads bearer bytes.
+_Avoid_: Unix-socket service, auth proxy, AgentVoice RPC, credential file reader.
 
 **Runtime authority lease** — A bounded, non-persisted capability delivered by
 the Credential broker to one voice-sidecar process so it can establish or
