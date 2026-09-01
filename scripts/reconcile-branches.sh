@@ -23,7 +23,16 @@ fi
 checkout="${CODPIECE_CODEX_CHECKOUT:-$HOME/src/codex}"
 test_mode="${CODPIECE_TESTING:-0}"
 case "$test_mode" in 0|1) ;; *) die "CODPIECE_TESTING must be 0 or 1" ;; esac
-if [ "$test_mode" -eq 1 ]; then
+
+# The modes below only report or converge what this file declares. They touch
+# no ref, so the voice-only phase preconditions — which guard reconciliation —
+# would only make the declaration unreadable while the phase is in flight.
+declaration_only=0
+case "${1:-}" in
+    --print-model | --configure-supervision | --check-supervision) declaration_only=1 ;;
+esac
+
+if [ "$declaration_only" -eq 0 ] && [ "$test_mode" -eq 1 ]; then
     actual_fork=$(git -C "$checkout" remote get-url fork 2>/dev/null) \
         || die "$checkout has no fork remote"
     actual_origin=$(git -C "$checkout" remote get-url origin 2>/dev/null) \
@@ -34,23 +43,26 @@ if [ "$test_mode" -eq 1 ]; then
         || die "test mode remote safety check failed"
 fi
 expected_carry=carry/voice-sidecar
-actual_carries=$(git -C "$checkout" for-each-ref \
-    --format='%(refname:short)' refs/heads/carry/ | LC_ALL=C sort)
-if [ "$actual_carries" != "$expected_carry" ]; then
-    printf 'codpiece branches: active voice-only phase requires exactly local %s\n' \
-        "$expected_carry" >&2
-    exit 1
-fi
-if git -C "$checkout" show-ref --verify --quiet refs/heads/integration; then
-    integration_sha=$(git -C "$checkout" rev-parse refs/heads/integration)
-    carry_sha=$(git -C "$checkout" rev-parse "refs/heads/$expected_carry")
-    if [ "$integration_sha" != "$carry_sha" ]; then
-        printf 'codpiece branches: voice-only Integration must exactly equal %s\n' \
+if [ "$declaration_only" -eq 0 ]; then
+    actual_carries=$(git -C "$checkout" for-each-ref \
+        --format='%(refname:short)' refs/heads/carry/ | LC_ALL=C sort)
+    if [ "$actual_carries" != "$expected_carry" ]; then
+        printf 'codpiece branches: active voice-only phase requires exactly local %s\n' \
             "$expected_carry" >&2
         exit 1
     fi
+    if git -C "$checkout" show-ref --verify --quiet refs/heads/integration; then
+        integration_sha=$(git -C "$checkout" rev-parse refs/heads/integration)
+        carry_sha=$(git -C "$checkout" rev-parse "refs/heads/$expected_carry")
+        if [ "$integration_sha" != "$carry_sha" ]; then
+            printf 'codpiece branches: voice-only Integration must exactly equal %s\n' \
+                "$expected_carry" >&2
+            exit 1
+        fi
+    fi
 fi
 
+export MAINTAIN_WORKSHOP="$root"
 export MAINTAIN_CHECKOUT="$checkout"
 export MAINTAIN_FORK_REPO=possibilities/codex
 export MAINTAIN_UPSTREAM_REPO=openai/codex
