@@ -42,21 +42,21 @@ if [ "$declaration_only" -eq 0 ] && [ "$test_mode" -eq 1 ]; then
     codpiece_require_local_test_remote origin "$actual_origin" \
         || die "test mode remote safety check failed"
 fi
-expected_carry=carry/voice-sidecar
+expected_carries=$(printf '%s\n' 'carry/fx-authorization' 'carry/voice-sidecar')
 if [ "$declaration_only" -eq 0 ]; then
     actual_carries=$(git -C "$checkout" for-each-ref \
         --format='%(refname:short)' refs/heads/carry/ | LC_ALL=C sort)
-    if [ "$actual_carries" != "$expected_carry" ]; then
-        printf 'codpiece branches: active voice-only phase requires exactly local %s\n' \
-            "$expected_carry" >&2
+    if [ "$actual_carries" != "$expected_carries" ]; then
+        printf 'codpiece branches: active phase requires exactly these local carries:\n%s\n' \
+            "$expected_carries" >&2
         exit 1
     fi
     if git -C "$checkout" show-ref --verify --quiet refs/heads/integration; then
         integration_sha=$(git -C "$checkout" rev-parse refs/heads/integration)
-        carry_sha=$(git -C "$checkout" rev-parse "refs/heads/$expected_carry")
+        carry_sha=$(git -C "$checkout" rev-parse refs/heads/carry/fx-authorization)
         if [ "$integration_sha" != "$carry_sha" ]; then
-            printf 'codpiece branches: voice-only Integration must exactly equal %s\n' \
-                "$expected_carry" >&2
+            printf 'codpiece branches: Integration must exactly equal %s\n' \
+                carry/fx-authorization >&2
             exit 1
         fi
     fi

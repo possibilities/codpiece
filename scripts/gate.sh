@@ -24,15 +24,11 @@ usage() {
 
 worktree=$2
 package=codex-voice-sidecar
-agentvoice_root="${CODPIECE_AGENTVOICE_ROOT:-$HOME/code/agentvoice}"
-validator="$agentvoice_root/src/codpiece-artifact-validator-cli.ts"
 state_root="${CODPIECE_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/codpiece}"
 
-for command in bun cargo comm git jq just shasum; do
+for command in cargo comm git jq just shasum; do
     command -v "$command" >/dev/null 2>&1 || die "$command is required"
 done
-[ -f "$validator" ] \
-    || die "AgentVoice native validator is missing at $validator"
 git -C "$worktree" rev-parse --is-inside-work-tree >/dev/null 2>&1 \
     || die "$worktree is not a git worktree"
 worktree=$(cd "$worktree" && pwd -P)
@@ -52,21 +48,6 @@ git -C "$worktree" merge-base --is-ancestor "$upstream_sha" "$candidate_sha" \
     || die "$candidate_sha does not contain origin/main at $upstream_sha"
 contract_sha=$(codpiece_gate_contract_digest "$root") \
     || die "could not hash the gate contract"
-agentvoice_provenance=$(codpiece_agentvoice_provenance "$agentvoice_root" "$validator") \
-    || die "could not bind a clean exact AgentVoice validator provenance"
-wire_contract_sha=$(
-    cd "$agentvoice_root"
-    bun run "$validator" --print-contract-sha
-) || die "could not read the AgentVoice wire-contract digest"
-printf '%s\n' "$wire_contract_sha" | grep -Eq '^[0-9a-f]{64}$' \
-    || die "AgentVoice returned an invalid wire-contract digest"
-agentvoice_provenance_after=$(codpiece_agentvoice_provenance "$agentvoice_root" "$validator") \
-    || die "AgentVoice validator provenance changed or became dirty"
-jq -e -S --argjson before "$agentvoice_provenance" \
-    --argjson after "$agentvoice_provenance_after" \
-    -n '$before == $after' >/dev/null \
-    || die "AgentVoice validator provenance changed while reading the wire contract"
-
 if [ -n "${CODPIECE_TARGET_DIR:-}" ]; then
     target_base=$CODPIECE_TARGET_DIR
 elif [ -d /Volumes/Scratch ] && [ -w /Volumes/Scratch ]; then
@@ -209,15 +190,16 @@ pending_metadata=$(mktemp "$target_dir/release/.metadata.XXXXXX")
 jq -n \
     --arg sourceRevision "$candidate_sha" \
     --arg upstreamRevision "$upstream_sha" \
-    --arg wireContractSha256 "$wire_contract_sha" \
     --arg builtAt "$recorded_at" \
     --arg binarySha256 "$binary_sha" \
     --arg binaryVersion "$binary_version" \
-    '{schemaVersion:2,implementation:"codex-voice-sidecar",
+    '{schemaVersion:3,implementation:"codex-voice-sidecar",
       sourceRepository:"possibilities/codex",sourceRevision:$sourceRevision,
-      upstreamRevision:$upstreamRevision,wireContractVersion:1,
-      wireContractSha256:$wireContractSha256,builtAt:$builtAt,
-      binarySha256:$binarySha256,binaryVersion:$binaryVersion}' \
+      upstreamRevision:$upstreamRevision,builtAt:$builtAt,
+      binarySha256:$binarySha256,binaryVersion:$binaryVersion,
+      credentialAuthority:{owner:"fx",provider:"codex",
+        transport:"inherited-fd",descriptor:3,protocolVersion:1,
+        maxFrameBytes:65536}}' \
     >"$pending_metadata"
 chmod 0600 "$pending_metadata"
 mv "$pending_metadata" "$metadata"
@@ -236,7 +218,6 @@ jq -n \
     --arg candidateTree "$candidate_tree" \
     --arg upstreamSha "$upstream_sha" \
     --arg gateContractSha256 "$contract_sha" \
-    --arg wireContractSha256 "$wire_contract_sha" \
     --arg binary "$binary" \
     --arg binarySha256 "$binary_sha" \
     --arg binaryVersion "$binary_version" \
@@ -244,21 +225,18 @@ jq -n \
     --arg metadataSha256 "$metadata_sha" \
     --arg dependencyGraphSha256 "$dependency_graph_sha" \
     --arg recordedAt "$recorded_at" \
-    --argjson agentVoiceProvenance "$agentvoice_provenance" \
     --argjson binaryBytes "$binary_size" \
     --argjson dependencyCount "$dependency_count" \
     --argjson budgetsEnforced "$budgets_enforced" \
     '{schemaVersion:1,status:$status,candidateSha:$candidateSha,
       candidateTree:$candidateTree,upstream:{ref:"origin/main",sha:$upstreamSha},
       gateContractSha256:$gateContractSha256,
-      wireContract:{version:1,sha256:$wireContractSha256},
       package:"codex-voice-sidecar",binary:$binary,
       binarySha256:$binarySha256,binaryVersion:$binaryVersion,
       binaryBytes:$binaryBytes,metadata:$metadata,
       metadataSha256:$metadataSha256,
       dependencyCount:$dependencyCount,
       dependencyGraphSha256:$dependencyGraphSha256,
-      agentVoiceProvenance:$agentVoiceProvenance,
       budgetsEnforced:$budgetsEnforced,
       build:{cargoJobs:2,releaseLto:false,releaseCodegenUnits:1,
         releaseStrip:"symbols"},

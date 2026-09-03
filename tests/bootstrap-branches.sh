@@ -59,92 +59,41 @@ new_fixture() {
     git -C "$checkout" add voice.txt
     git -C "$checkout" "${git_identity[@]}" commit --quiet -m voice
     voice_sha=$(git -C "$checkout" rev-parse HEAD)
-    voice_tree=$(git -C "$checkout" rev-parse 'HEAD^{tree}')
+    git -C "$checkout" switch --quiet -c carry/fx-authorization
+    printf 'authorization\n' >"$checkout/authorization.txt"
+    git -C "$checkout" add authorization.txt
+    git -C "$checkout" "${git_identity[@]}" commit --quiet -m authorization
+    integration_sha=$(git -C "$checkout" rev-parse HEAD)
+    integration_tree=$(git -C "$checkout" rev-parse 'HEAD^{tree}')
     git -C "$checkout" switch --quiet main
 
-    mkdir -p "$state/local-builds" "$state/artifact-gates" "$case_root/artifact"
+    mkdir -p "$state/local-builds"
     contract_sha=$(codpiece_gate_contract_digest "$root") \
         || fail "could not hash gate contract"
-    wire_sha=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
     binary_sha=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
     metadata_sha=cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
     dependency_sha=7777777777777777777777777777777777777777777777777777777777777777
-    agentvoice_provenance=$(jq -n \
-        --arg root "$case_root/agentvoice" \
-        --arg commit "$base_sha" \
-        --arg tree "$voice_tree" \
-        --arg validator "$case_root/agentvoice/src/codpiece-artifact-validator-cli.ts" \
-        '{schemaVersion:1,repository:"agentvoice",root:$root,
-          commitSha:$commit,treeSha:$tree,
-          validator:{path:$validator,
-            repositoryPath:"src/codpiece-artifact-validator-cli.ts",
-            sha256:"8888888888888888888888888888888888888888888888888888888888888888"},
-          dependencyFiles:[
-            {repositoryPath:"package.json",
-             sha256:"9999999999999999999999999999999999999999999999999999999999999999"},
-            {repositoryPath:"bun.lock",
-             sha256:"abababababababababababababababababababababababababababababababab"}
-          ]}')
-    local_receipt="$state/local-builds/$voice_sha.json"
+    local_receipt="$state/local-builds/$integration_sha.json"
     jq -n \
-        --arg sha "$voice_sha" \
-        --arg tree "$voice_tree" \
+        --arg sha "$integration_sha" \
+        --arg tree "$integration_tree" \
         --arg upstream "$upstream_sha" \
         --arg contract "$contract_sha" \
-        --arg wire "$wire_sha" \
         --arg binarySha "$binary_sha" \
         --arg metadataSha "$metadata_sha" \
         --arg dependencySha "$dependency_sha" \
-        --argjson agentVoiceProvenance "$agentvoice_provenance" \
         '{schemaVersion:1,status:"local-pass",candidateSha:$sha,
           candidateTree:$tree,upstream:{ref:"origin/main",sha:$upstream},
-          gateContractSha256:$contract,wireContract:{version:1,sha256:$wire},
+          gateContractSha256:$contract,
           package:"codex-voice-sidecar",binary:"/tmp/codex-voice-sidecar",
           binarySha256:$binarySha,binaryVersion:"codex-voice-sidecar 0.1.0-test",
           binaryBytes:1,metadata:"/tmp/metadata.json",metadataSha256:$metadataSha,
           dependencyCount:1,dependencyGraphSha256:$dependencySha,
-          agentVoiceProvenance:$agentVoiceProvenance,
           budgetsEnforced:true,
           build:{cargoJobs:2,releaseLto:false,releaseCodegenUnits:1},
           recordedAt:"2026-08-30T00:00:00Z"}' \
         >"$local_receipt"
     chmod 0600 "$local_receipt"
-    local_receipt_sha=$(shasum -a 256 "$local_receipt" | awk '{print $1}')
-    jq -n \
-        --arg sha "$voice_sha" \
-        --arg tree "$voice_tree" \
-        --arg contract "$contract_sha" \
-        --arg localReceipt "$local_receipt" \
-        --arg localReceiptSha "$local_receipt_sha" \
-        --arg wire "$wire_sha" \
-        --arg binarySha "$binary_sha" \
-        --arg artifact "$case_root/artifact" \
-        --argjson agentVoiceProvenance "$agentvoice_provenance" \
-        '{schemaVersion:1,status:"artifact-pass",candidateSha:$sha,
-          candidateTree:$tree,gateContractSha256:$contract,
-          localReceipt:$localReceipt,localReceiptSha256:$localReceiptSha,
-          agentVoiceProvenance:$agentVoiceProvenance,
-          agentVoice:{schemaVersion:1,status:"accepted",candidateSha:$sha,
-            binarySha256:$binarySha,
-            binaryVersion:"codex-voice-sidecar 0.1.0-test",
-            wireContractSha256:$wire,
-            artifact:{path:$artifact,
-              manifestSha256:"1111111111111111111111111111111111111111111111111111111111111111",
-              eventsSha256:"2222222222222222222222222222222222222222222222222222222222222222",
-              scenarioSha256:"3333333333333333333333333333333333333333333333333333333333333333",
-              evaluationInputReceiptSha256:"4444444444444444444444444444444444444444444444444444444444444444",
-              comparisonWavSha256:"5555555555555555555555555555555555555555555555555555555555555555",
-              inputWavSha256:"6666666666666666666666666666666666666666666666666666666666666666",
-              outputWavSha256:"7777777777777777777777777777777777777777777777777777777777777777",
-              declaredEvidenceSha256:{
-                events:"2222222222222222222222222222222222222222222222222222222222222222",
-                scenario:"3333333333333333333333333333333333333333333333333333333333333333",
-                evaluationInputReceipt:"4444444444444444444444444444444444444444444444444444444444444444",
-                comparisonAudio:"5555555555555555555555555555555555555555555555555555555555555555",
-                inputAudio:"6666666666666666666666666666666666666666666666666666666666666666",
-                outputAudio:"7777777777777777777777777777777777777777777777777777777777777777"}}}}' \
-        >"$state/artifact-gates/$voice_sha.json"
-    chmod 0600 "$state/artifact-gates/$voice_sha.json"
 }
 
 bootstrap() {
@@ -193,7 +142,9 @@ new_fixture happy
 check_output=$(bootstrap --check)
 printf '%s\n' "$check_output" | grep -F "CREATE carry/voice-sidecar $voice_sha" >/dev/null \
     || fail "check mode omitted the carry plan"
-printf '%s\n' "$check_output" | grep -F "CREATE integration $voice_sha" >/dev/null \
+printf '%s\n' "$check_output" | grep -F "CREATE carry/fx-authorization $integration_sha" \
+    >/dev/null || fail "check mode omitted the authorization carry plan"
+printf '%s\n' "$check_output" | grep -F "CREATE integration $integration_sha" >/dev/null \
     || fail "check mode omitted the Integration plan"
 assert_unmodified_targets
 bootstrap --apply >/dev/null
@@ -201,15 +152,15 @@ bootstrap --apply >/dev/null
     || fail "bootstrap did not mirror upstream Main"
 [ "$(remote_sha refs/heads/carry/voice-sidecar)" = "$voice_sha" ] \
     || fail "bootstrap did not publish the voice carry"
-[ "$(remote_sha refs/heads/integration)" = "$voice_sha" ] \
+[ "$(remote_sha refs/heads/integration)" = "$integration_sha" ] \
     || fail "bootstrap did not publish Integration"
 [ "$(remote_sha refs/heads/unrelated)" = "$base_sha" ] \
     || fail "bootstrap moved an unrelated head"
-[ "$(git -C "$checkout" rev-parse refs/heads/integration)" = "$voice_sha" ] \
+[ "$(git -C "$checkout" rev-parse refs/heads/integration)" = "$integration_sha" ] \
     || fail "bootstrap did not bind local Integration"
 [ ! -e "$state/release.lock" ] || fail "bootstrap left its release lock"
 repair_output=$(bootstrap --apply)
-printf '%s\n' "$repair_output" | grep -F "REPAIRED-LOCAL $voice_sha" >/dev/null \
+printf '%s\n' "$repair_output" | grep -F "REPAIRED-LOCAL $integration_sha" >/dev/null \
     || fail "completed bootstrap was not idempotently repairable"
 CODPIECE_TESTING=1 \
 CODPIECE_CODEX_CHECKOUT="$checkout" \
@@ -237,13 +188,13 @@ printf '%s\n' "$interrupted_output" \
     | grep -F 'remote bootstrap published; local binding was interrupted' >/dev/null \
     || fail "post-push interruption was not explained"
 [ "$(remote_sha refs/heads/main)" = "$upstream_sha" ] \
-    && [ "$(remote_sha refs/heads/integration)" = "$voice_sha" ] \
+    && [ "$(remote_sha refs/heads/integration)" = "$integration_sha" ] \
     && [ "$(remote_sha refs/heads/carry/voice-sidecar)" = "$voice_sha" ] \
     || fail "post-push interruption lost the remote transaction"
 remote_repair_output=$(bootstrap --apply)
-printf '%s\n' "$remote_repair_output" | grep -F "REPAIRED-LOCAL $voice_sha" >/dev/null \
+printf '%s\n' "$remote_repair_output" | grep -F "REPAIRED-LOCAL $integration_sha" >/dev/null \
     || fail "bootstrap did not repair interrupted local binding"
-[ "$(git -C "$checkout" rev-parse refs/heads/integration)" = "$voice_sha" ] \
+[ "$(git -C "$checkout" rev-parse refs/heads/integration)" = "$integration_sha" ] \
     || fail "local repair did not create Integration"
 
 race_hook="$scratch/race-hook.sh"
@@ -320,7 +271,7 @@ assert_unmodified_targets
 new_fixture extra-carry
 git -C "$checkout" branch carry/uninventoried main
 expect_bootstrap_failure \
-    'bootstrap requires exactly one local carry: carry/voice-sidecar' --check
+    'bootstrap requires exactly the declared carries' --check
 
 new_fixture missing-carry
 git -C "$checkout" branch -D carry/voice-sidecar >/dev/null
@@ -331,37 +282,16 @@ empty_tree=$(git -C "$checkout" mktree </dev/null)
 bad_sha=$(printf 'bad root\n' \
     | git -C "$checkout" "${git_identity[@]}" commit-tree "$empty_tree")
 git -C "$checkout" branch --force carry/voice-sidecar "$bad_sha"
+git -C "$checkout" branch --force carry/fx-authorization "$bad_sha"
 expect_bootstrap_failure 'does not contain upstream/main' --check
 
-new_fixture bad-receipt
-chmod 0644 "$state/artifact-gates/$voice_sha.json"
-expect_bootstrap_failure 'no private regular artifact-gate receipt' --check
+new_fixture unbased-authorization
+git -C "$checkout" branch --force carry/fx-authorization "$base_sha"
+expect_bootstrap_failure 'is not based on' --check
 
 new_fixture missing-local-receipt
-rm -f -- "$state/local-builds/$voice_sha.json"
+rm -f -- "$state/local-builds/$integration_sha.json"
 expect_bootstrap_failure 'no private regular local-build receipt' --check
-
-new_fixture shallow-artifact-receipt
-jq -n \
-    --arg sha "$voice_sha" \
-    --arg tree "$voice_tree" \
-    --arg contract "$contract_sha" \
-    '{schemaVersion:1,status:"artifact-pass",candidateSha:$sha,
-      candidateTree:$tree,gateContractSha256:$contract,
-      agentVoice:{status:"accepted"}}' \
-    >"$state/artifact-gates/$voice_sha.json"
-chmod 0600 "$state/artifact-gates/$voice_sha.json"
-expect_bootstrap_failure 'artifact gate does not prove' --check
-
-new_fixture mismatched-artifact-binary
-jq '.agentVoice.binarySha256 =
-    "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"' \
-    "$state/artifact-gates/$voice_sha.json" \
-    >"$state/artifact-gates/$voice_sha.json.tmp"
-mv "$state/artifact-gates/$voice_sha.json.tmp" \
-    "$state/artifact-gates/$voice_sha.json"
-chmod 0600 "$state/artifact-gates/$voice_sha.json"
-expect_bootstrap_failure 'artifact gate does not prove' --check
 
 new_fixture production-remote-override
 set +e

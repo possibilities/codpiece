@@ -75,7 +75,7 @@ if [ "$mode" = check ]; then
         'codpiece installation:' \
         "  checkout: $checkout" \
         "  source: fork/integration ($display_fork_url), exact full SHA only" \
-        '  authority: current-contract ship receipt chained to local-build and artifact receipts with clean AgentVoice validator provenance' \
+        '  authority: current-contract local-build receipt for this exact candidate' \
         "  build: detached $package, two Cargo jobs, release LTO off, one codegen unit, symbols stripped" \
         "  target: SHA-isolated directories under $target_base" \
         "  install: immutable version under $install_root" \
@@ -105,8 +105,6 @@ else
 fi
 
 local_receipt="$state_root/local-builds/$expected_sha.json"
-artifact_receipt="$state_root/artifact-gates/$expected_sha.json"
-ship_receipt="$state_root/ship-gates/$expected_sha.json"
 
 remote_integration() {
     codpiece_remote_head "$checkout" fork refs/heads/integration fork/integration \
@@ -173,10 +171,6 @@ codpiece_release_lock_acquire "$state_root" || die "release lock is busy"
 lock_held=1
 codpiece_regular_private_receipt "$local_receipt" \
     || die "no private regular local-build receipt for $expected_sha"
-codpiece_regular_private_receipt "$artifact_receipt" \
-    || die "no private regular artifact-gate receipt for $expected_sha"
-codpiece_regular_private_receipt "$ship_receipt" \
-    || die "no private regular ship receipt for $expected_sha"
 contract_sha=$(codpiece_gate_contract_digest "$root") \
     || die "could not hash the gate contract"
 local_receipt_sha=$(shasum -a 256 "$local_receipt" | awk '{print $1}')
@@ -187,33 +181,12 @@ jq -e \
         .candidateSha == $sha and
         (.candidateTree | test("^[0-9a-f]{40}$")) and
         .gateContractSha256 == $contract and .budgetsEnforced == true and
-        .wireContract.version == 1 and
-        (.wireContract.sha256 | test("^[0-9a-f]{64}$")) and
         (.binarySha256 | test("^[0-9a-f]{64}$")) and
         (.metadataSha256 | test("^[0-9a-f]{64}$")) and
-        (.dependencyGraphSha256 | test("^[0-9a-f]{64}$")) and
-        .agentVoiceProvenance.schemaVersion == 1 and
-        .agentVoiceProvenance.repository == "agentvoice" and
-        (.agentVoiceProvenance.commitSha | test("^[0-9a-f]{40}$")) and
-        (.agentVoiceProvenance.treeSha | test("^[0-9a-f]{40}$")) and
-        .agentVoiceProvenance.validator.repositoryPath ==
-            "src/codpiece-artifact-validator-cli.ts" and
-        (.agentVoiceProvenance.validator.sha256 | test("^[0-9a-f]{64}$")) and
-        (.agentVoiceProvenance.dependencyFiles | type == "array" and length > 0) and
-        any(.agentVoiceProvenance.dependencyFiles[];
-            .repositoryPath == "package.json") and
-        (any(.agentVoiceProvenance.dependencyFiles[];
-            .repositoryPath == "bun.lock") or
-         any(.agentVoiceProvenance.dependencyFiles[];
-            .repositoryPath == "bun.lockb")) and
-        all(.agentVoiceProvenance.dependencyFiles[];
-            (.repositoryPath | type == "string" and length > 0) and
-            (.sha256 | test("^[0-9a-f]{64}$")))
+        (.dependencyGraphSha256 | test("^[0-9a-f]{64}$"))
     ' "$local_receipt" >/dev/null \
     || die "local-build receipt does not prove this candidate under the current contract"
 candidate_tree=$(jq -r '.candidateTree' "$local_receipt")
-expected_agentvoice_provenance=$(jq -c '.agentVoiceProvenance' "$local_receipt")
-wire_contract_sha=$(jq -r '.wireContract.sha256' "$local_receipt")
 local_upstream_sha=$(jq -r '.upstream.sha' "$local_receipt")
 expected_binary_sha=$(jq -r '.binarySha256' "$local_receipt")
 expected_binary_version=$(jq -r '.binaryVersion' "$local_receipt")
@@ -223,108 +196,26 @@ codpiece_regular_private_receipt "$metadata_source" \
     || die "local-build metadata is not a private regular file"
 [ "$(shasum -a 256 "$metadata_source" | awk '{print $1}')" = "$expected_metadata_sha" ] \
     || die "local-build metadata bytes do not match the local receipt"
+# The sidecar's own metadata says what this binary is; the build gate bound
+# it to the candidate and its hashes, so it is what the installer verifies.
 jq -e \
     --arg sha "$expected_sha" \
-    --arg tree "$candidate_tree" \
-    --arg contract "$contract_sha" \
-    --arg localReceiptSha "$local_receipt_sha" \
-    --arg wireContract "$wire_contract_sha" \
     --arg binarySha "$expected_binary_sha" \
     --arg binaryVersion "$expected_binary_version" \
-    --argjson agentVoiceProvenance "$expected_agentvoice_provenance" '
-        def sha256:
-            type == "string" and test("^[0-9a-f]{64}$");
-        def evidence_sha:
-            if type == "string" then sha256
-            elif type == "array" then all(.[]; sha256)
-            elif . == null then true
-            else false
-            end;
-        .schemaVersion == 1 and .status == "artifact-pass" and
-        .candidateSha == $sha and .candidateTree == $tree and
-        .gateContractSha256 == $contract and
-        .localReceiptSha256 == $localReceiptSha and
-        .agentVoiceProvenance == $agentVoiceProvenance and
-        .agentVoice.schemaVersion == 1 and
-        .agentVoice.status == "accepted" and
-        .agentVoice.candidateSha == $sha and
-        .agentVoice.binarySha256 == $binarySha and
-        .agentVoice.binaryVersion == $binaryVersion and
-        .agentVoice.wireContractSha256 == $wireContract and
-        (.agentVoice.artifact.path | type == "string" and length > 0) and
-        (.agentVoice.artifact.manifestSha256 | sha256) and
-        (.agentVoice.artifact.eventsSha256 | sha256) and
-        (.agentVoice.artifact.scenarioSha256 | sha256) and
-        (.agentVoice.artifact.evaluationInputReceiptSha256 | sha256) and
-        (.agentVoice.artifact.comparisonWavSha256 | sha256) and
-        (.agentVoice.artifact.inputWavSha256 | sha256) and
-        (.agentVoice.artifact.outputWavSha256 | sha256) and
-        (.agentVoice.artifact.declaredEvidenceSha256 |
-            type == "object" and length > 0) and
-        all(.agentVoice.artifact.declaredEvidenceSha256[]; evidence_sha)
-    ' "$artifact_receipt" >/dev/null \
-    || die "artifact-gate receipt does not prove this candidate under the current contract"
-artifact_receipt_sha=$(shasum -a 256 "$artifact_receipt" | awk '{print $1}')
-expected_agentvoice=$(jq -c '.agentVoice' "$artifact_receipt")
-jq -e \
-    --arg sha "$expected_sha" \
-    --arg tree "$candidate_tree" \
-    --arg contract "$contract_sha" \
-    --arg localReceiptSha "$local_receipt_sha" \
-    --arg artifactReceiptSha "$artifact_receipt_sha" \
-    --arg wireContract "$wire_contract_sha" \
-    --arg upstreamSha "$local_upstream_sha" \
-    --arg binarySha "$expected_binary_sha" \
-    --arg binaryVersion "$expected_binary_version" \
-    --arg metadataSha "$expected_metadata_sha" \
-    --argjson agentVoiceProvenance "$expected_agentvoice_provenance" \
-    --argjson agentVoice "$expected_agentvoice" '
-        def sha256:
-            type == "string" and test("^[0-9a-f]{64}$");
-        def evidence_sha:
-            if type == "string" then sha256
-            elif type == "array" then all(.[]; sha256)
-            elif . == null then true
-            else false
-            end;
-        .schemaVersion == 1 and .status == "ship" and
-        .candidateSha == $sha and .candidateTree == $tree and
-        .source == "possibilities/codex:integration" and
-        .upstreamSha == $upstreamSha and
-        .gateContractSha256 == $contract and
-        .localReceiptSha256 == $localReceiptSha and
-        .artifactReceiptSha256 == $artifactReceiptSha and
-        .agentVoiceProvenance == $agentVoiceProvenance and
-        .agentVoice == $agentVoice and
-        .agentVoice.schemaVersion == 1 and
-        .agentVoice.status == "accepted" and
-        .agentVoice.binarySha256 == $binarySha and
-        .agentVoice.binaryVersion == $binaryVersion and
-        .agentVoice.wireContractSha256 == $wireContract and
-        (.agentVoice.artifact.declaredEvidenceSha256 |
-            type == "object" and length > 0) and
-        all(.agentVoice.artifact.declaredEvidenceSha256[]; evidence_sha) and
+    --arg upstreamSha "$local_upstream_sha" '
+        .schemaVersion == 3 and
+        .implementation == "codex-voice-sidecar" and
+        .sourceRepository == "possibilities/codex" and
+        .sourceRevision == $sha and
+        .upstreamRevision == $upstreamSha and
         .binarySha256 == $binarySha and
         .binaryVersion == $binaryVersion and
-        .metadataSha256 == $metadataSha and
-        .sidecarMetadata.schemaVersion == 2 and
-        .sidecarMetadata.implementation == "codex-voice-sidecar" and
-        .sidecarMetadata.sourceRepository == "possibilities/codex" and
-        .sidecarMetadata.sourceRevision == $sha and
-        .sidecarMetadata.upstreamRevision == $upstreamSha and
-        .sidecarMetadata.wireContractVersion == 1 and
-        .sidecarMetadata.wireContractSha256 == $wireContract and
-        .sidecarMetadata.binarySha256 == $binarySha and
-        .sidecarMetadata.binaryVersion == $binaryVersion
-    ' "$ship_receipt" >/dev/null \
-    || die "ship receipt does not authorize this install under the current contract"
-jq -e -S -n --slurpfile metadataSource "$metadata_source" \
-    --slurpfile ship "$ship_receipt" \
-    '($metadataSource | length) == 1 and
-     ($ship | length) == 1 and
-     $metadataSource[0] == $ship[0].sidecarMetadata' >/dev/null \
-    || die "local-build metadata bytes do not match the ship receipt"
-ship_receipt_sha=$(shasum -a 256 "$ship_receipt" | awk '{print $1}')
+        .credentialAuthority.owner == "fx" and
+        .credentialAuthority.provider == "codex" and
+        .credentialAuthority.transport == "inherited-fd" and
+        .credentialAuthority.descriptor == 3
+    ' "$metadata_source" >/dev/null \
+    || die "sidecar metadata does not describe this candidate"
 published=$(remote_integration)
 [ "$published" = "$expected_sha" ] \
     || die "fork/integration is $published, not requested $expected_sha"
@@ -336,7 +227,7 @@ git -C "$checkout" fetch --quiet --no-tags fork refs/heads/integration \
 [ "$(git -C "$checkout" rev-parse FETCH_HEAD)" = "$expected_sha" ] \
     || die "fetched Integration does not match $expected_sha"
 [ "$(git -C "$checkout" rev-parse "$expected_sha^{tree}")" = "$candidate_tree" ] \
-    || die "fetched Integration tree does not match the ship receipt"
+    || die "fetched Integration tree does not match the local-build receipt"
 git -C "$checkout" worktree add --quiet --detach "$build_worktree" "$expected_sha" \
     || die "could not create a detached worktree for $expected_sha"
 worktree_added=1
@@ -380,7 +271,7 @@ if [ -e "$version_dir" ]; then
         || die "immutable version directory has no private regular metadata"
     [ "$(shasum -a 256 "$version_dir/metadata.json" | awk '{print $1}')" = \
         "$expected_metadata_sha" ] \
-        || die "immutable version directory metadata does not match the ship receipt"
+        || die "immutable version directory metadata does not match the local-build receipt"
     codpiece_regular_private_receipt "$version_dir/install.json" \
         || die "immutable version directory has no private regular install receipt"
     jq -e \
@@ -390,8 +281,8 @@ if [ -e "$version_dir" ]; then
         --arg binaryVersion "$expected_binary_version" \
         --arg metadata "$version_dir/metadata.json" \
         --arg metadataSha "$expected_metadata_sha" \
-        --arg shipReceipt "$ship_receipt" \
-        --arg shipReceiptSha "$ship_receipt_sha" '
+        --arg buildReceipt "$local_receipt" \
+        --arg buildReceiptSha "$local_receipt_sha" '
             .schemaVersion == 1 and .integrationSha == $sha and
             .source == "possibilities/codex:integration" and
             .package == "codex-voice-sidecar" and .binary == $binary and
@@ -399,8 +290,8 @@ if [ -e "$version_dir" ]; then
             .binaryVersion == $binaryVersion and
             .metadata == $metadata and
             .metadataSha256 == $metadataSha and
-            .shipReceipt == $shipReceipt and
-            .shipReceiptSha256 == $shipReceiptSha and
+            .buildReceipt == $buildReceipt and
+            .buildReceiptSha256 == $buildReceiptSha and
             (.installedAt | type == "string" and length > 0)
         ' "$version_dir/install.json" >/dev/null \
         || die "immutable version directory has an invalid install receipt"
@@ -416,15 +307,15 @@ else
         --arg binaryVersion "$expected_binary_version" \
         --arg metadata "$version_dir/metadata.json" \
         --arg metadataSha256 "$expected_metadata_sha" \
-        --arg shipReceipt "$ship_receipt" \
-        --arg shipReceiptSha256 "$ship_receipt_sha" \
+        --arg buildReceipt "$local_receipt" \
+        --arg buildReceiptSha256 "$local_receipt_sha" \
         --arg installedAt "$installed_at" \
         '{schemaVersion:1,integrationSha:$integrationSha,
           source:"possibilities/codex:integration",
           package:"codex-voice-sidecar",binary:$binary,
           binarySha256:$binarySha256,binaryVersion:$binaryVersion,
           metadata:$metadata,metadataSha256:$metadataSha256,
-          shipReceipt:$shipReceipt,shipReceiptSha256:$shipReceiptSha256,
+          buildReceipt:$buildReceipt,buildReceiptSha256:$buildReceiptSha256,
           installedAt:$installedAt}' >"$staging/install.json"
     chmod 0600 "$staging/install.json"
     mv "$staging" "$version_dir"

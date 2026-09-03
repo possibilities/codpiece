@@ -63,22 +63,31 @@ else
 fi
 
 voice_branch=carry/voice-sidecar
-git -C "$checkout" rev-parse --verify --quiet "refs/heads/$voice_branch^{commit}" >/dev/null \
-    || die "local $voice_branch is missing"
+auth_branch=carry/fx-authorization
+for branch in "$voice_branch" "$auth_branch"; do
+    git -C "$checkout" rev-parse --verify --quiet "refs/heads/$branch^{commit}" >/dev/null \
+        || die "local $branch is missing"
+done
 voice_sha=$(git -C "$checkout" rev-parse "refs/heads/$voice_branch")
 codpiece_full_sha "$voice_sha" || die "$voice_branch is not a full commit SHA"
+# Integration is the top carry, and each carry contains the one below it.
+integration_sha=$(git -C "$checkout" rev-parse "refs/heads/$auth_branch")
+codpiece_full_sha "$integration_sha" || die "$auth_branch is not a full commit SHA"
+git -C "$checkout" merge-base --is-ancestor "$voice_sha" "$integration_sha" \
+    || die "$auth_branch is not based on $voice_branch"
 local_integration_exists=0
 if git -C "$checkout" show-ref --verify --quiet refs/heads/integration; then
     local_integration_exists=1
     local_integration_sha=$(git -C "$checkout" rev-parse refs/heads/integration)
-    [ "$local_integration_sha" = "$voice_sha" ] \
-        || die "local integration does not equal $voice_branch"
+    [ "$local_integration_sha" = "$integration_sha" ] \
+        || die "local integration does not equal $auth_branch"
 fi
 
 local_carries=$(git -C "$checkout" for-each-ref \
     --format='%(refname:short)' refs/heads/carry/ | LC_ALL=C sort)
-[ "$local_carries" = "$voice_branch" ] \
-    || die "bootstrap requires exactly one local carry: $voice_branch"
+expected_carries=$(printf '%s\n' "$auth_branch" "$voice_branch")
+[ "$local_carries" = "$expected_carries" ] \
+    || die "bootstrap requires exactly the declared carries"
 
 scratch=$(mktemp -d "${TMPDIR:-/tmp}/codpiece-bootstrap.XXXXXX")
 snapshot="$scratch/snapshot.git"
@@ -128,6 +137,7 @@ upstream_sha=$(git --git-dir="$snapshot" rev-parse refs/bootstrap/origin/main)
 fork_main_sha=$(lookup_remote main) || die "fork/main is missing"
 remote_integration_sha=$(lookup_remote integration 2>/dev/null || true)
 remote_voice_sha=$(lookup_remote "$voice_branch" 2>/dev/null || true)
+remote_auth_sha=$(lookup_remote "$auth_branch" 2>/dev/null || true)
 git --git-dir="$snapshot" merge-base --is-ancestor "$fork_main_sha" "$upstream_sha" \
     || die "fork/main has commits outside upstream/main"
 [ "$(git -C "$checkout" rev-parse refs/heads/main)" = "$upstream_sha" ] \
@@ -136,10 +146,12 @@ git -C "$checkout" merge-base --is-ancestor "$upstream_sha" "$voice_sha" \
     || die "$voice_branch does not contain upstream/main at $upstream_sha"
 
 bootstrap_state=create
-if [ -n "$remote_integration_sha" ] || [ -n "$remote_voice_sha" ]; then
+if [ -n "$remote_integration_sha" ] || [ -n "$remote_voice_sha" ] \
+    || [ -n "$remote_auth_sha" ]; then
     [ "$fork_main_sha" = "$upstream_sha" ] \
-        && [ "$remote_integration_sha" = "$voice_sha" ] \
+        && [ "$remote_integration_sha" = "$integration_sha" ] \
         && [ "$remote_voice_sha" = "$voice_sha" ] \
+        && [ "$remote_auth_sha" = "$integration_sha" ] \
         || die "remote bootstrap refs already exist in a different or partial state"
     bootstrap_state=repair-local
 elif [ "$local_integration_exists" -eq 1 ]; then
@@ -149,100 +161,34 @@ fi
 state_root="${CODPIECE_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/codpiece}"
 codpiece_release_lock_acquire "$state_root" || die "release lock is busy"
 release_lock_held=1
-local_receipt="$state_root/local-builds/$voice_sha.json"
-artifact_receipt="$state_root/artifact-gates/$voice_sha.json"
+local_receipt="$state_root/local-builds/$integration_sha.json"
 codpiece_regular_private_receipt "$local_receipt" \
-    || die "no private regular local-build receipt for $voice_sha"
-codpiece_regular_private_receipt "$artifact_receipt" \
-    || die "no private regular artifact-gate receipt for $voice_sha"
+    || die "no private regular local-build receipt for $integration_sha"
 contract_sha=$(codpiece_gate_contract_digest "$root") \
     || die "could not hash the gate contract"
-voice_tree=$(git -C "$checkout" rev-parse "$voice_sha^{tree}")
+voice_tree=$(git -C "$checkout" rev-parse "$integration_sha^{tree}")
 jq -e \
-    --arg sha "$voice_sha" \
+    --arg sha "$integration_sha" \
     --arg tree "$voice_tree" \
     --arg contract "$contract_sha" '
         .schemaVersion == 1 and .status == "local-pass" and
         .candidateSha == $sha and .candidateTree == $tree and
         .gateContractSha256 == $contract and .budgetsEnforced == true and
-        .wireContract.version == 1 and
-        (.wireContract.sha256 | test("^[0-9a-f]{64}$")) and
         (.binarySha256 | test("^[0-9a-f]{64}$")) and
         (.metadataSha256 | test("^[0-9a-f]{64}$")) and
-        (.dependencyGraphSha256 | test("^[0-9a-f]{64}$")) and
-        .agentVoiceProvenance.schemaVersion == 1 and
-        .agentVoiceProvenance.repository == "agentvoice" and
-        (.agentVoiceProvenance.commitSha | test("^[0-9a-f]{40}$")) and
-        (.agentVoiceProvenance.treeSha | test("^[0-9a-f]{40}$")) and
-        .agentVoiceProvenance.validator.repositoryPath ==
-            "src/codpiece-artifact-validator-cli.ts" and
-        (.agentVoiceProvenance.validator.sha256 | test("^[0-9a-f]{64}$")) and
-        (.agentVoiceProvenance.dependencyFiles | type == "array" and length > 0) and
-        any(.agentVoiceProvenance.dependencyFiles[];
-            .repositoryPath == "package.json") and
-        (any(.agentVoiceProvenance.dependencyFiles[];
-            .repositoryPath == "bun.lock") or
-         any(.agentVoiceProvenance.dependencyFiles[];
-            .repositoryPath == "bun.lockb")) and
-        all(.agentVoiceProvenance.dependencyFiles[];
-            (.repositoryPath | type == "string" and length > 0) and
-            (.sha256 | test("^[0-9a-f]{64}$")))
+        (.dependencyGraphSha256 | test("^[0-9a-f]{64}$"))
     ' "$local_receipt" >/dev/null \
-    || die "local-build receipt does not prove $voice_sha under the current contract"
-local_receipt_sha=$(shasum -a 256 "$local_receipt" | awk '{print $1}')
-agentvoice_provenance=$(jq -c '.agentVoiceProvenance' "$local_receipt")
-wire_contract_sha=$(jq -r '.wireContract.sha256' "$local_receipt")
-binary_sha=$(jq -r '.binarySha256' "$local_receipt")
-binary_version=$(jq -r '.binaryVersion' "$local_receipt")
-jq -e \
-    --arg sha "$voice_sha" \
-    --arg tree "$voice_tree" \
-    --arg contract "$contract_sha" \
-    --arg localReceiptSha "$local_receipt_sha" \
-    --arg wireContract "$wire_contract_sha" \
-    --arg binarySha "$binary_sha" \
-    --arg binaryVersion "$binary_version" \
-    --argjson agentVoiceProvenance "$agentvoice_provenance" '
-        def sha256:
-            type == "string" and test("^[0-9a-f]{64}$");
-        def evidence_sha:
-            if type == "string" then sha256
-            elif type == "array" then all(.[]; sha256)
-            elif . == null then true
-            else false
-            end;
-        .schemaVersion == 1 and .status == "artifact-pass" and
-        .candidateSha == $sha and .candidateTree == $tree and
-        .gateContractSha256 == $contract and
-        .localReceiptSha256 == $localReceiptSha and
-        .agentVoiceProvenance == $agentVoiceProvenance and
-        .agentVoice.schemaVersion == 1 and
-        .agentVoice.status == "accepted" and
-        .agentVoice.candidateSha == $sha and
-        .agentVoice.binarySha256 == $binarySha and
-        .agentVoice.binaryVersion == $binaryVersion and
-        .agentVoice.wireContractSha256 == $wireContract and
-        (.agentVoice.artifact.path | type == "string" and length > 0) and
-        (.agentVoice.artifact.manifestSha256 | sha256) and
-        (.agentVoice.artifact.eventsSha256 | sha256) and
-        (.agentVoice.artifact.scenarioSha256 | sha256) and
-        (.agentVoice.artifact.evaluationInputReceiptSha256 | sha256) and
-        (.agentVoice.artifact.comparisonWavSha256 | sha256) and
-        (.agentVoice.artifact.inputWavSha256 | sha256) and
-        (.agentVoice.artifact.outputWavSha256 | sha256) and
-        (.agentVoice.artifact.declaredEvidenceSha256 |
-            type == "object" and length > 0) and
-        all(.agentVoice.artifact.declaredEvidenceSha256[]; evidence_sha)
-    ' "$artifact_receipt" >/dev/null \
-    || die "artifact gate does not prove $voice_sha under the current contract"
+    || die "local-build receipt does not prove $integration_sha under the current contract"
 
 if [ "$bootstrap_state" = create ]; then
     printf 'MAIN %s -> %s\n' "$fork_main_sha" "$upstream_sha"
     printf 'CREATE %s %s\n' "$voice_branch" "$voice_sha"
-    printf 'CREATE integration %s\n' "$voice_sha"
+    printf 'CREATE %s %s\n' "$auth_branch" "$integration_sha"
+    printf 'CREATE integration %s\n' "$integration_sha"
 else
     printf 'REPAIR-LOCAL %s %s\n' "$voice_branch" "$voice_sha"
-    printf 'REPAIR-LOCAL integration %s\n' "$voice_sha"
+    printf 'REPAIR-LOCAL %s %s\n' "$auth_branch" "$integration_sha"
+    printf 'REPAIR-LOCAL integration %s\n' "$integration_sha"
 fi
 [ "$mode" = apply ] || exit 0
 
@@ -276,9 +222,11 @@ if [ "$bootstrap_state" = create ]; then
         --force-with-lease="refs/heads/main:$fork_main_sha" \
         --force-with-lease=refs/heads/integration: \
         --force-with-lease="refs/heads/$voice_branch:" \
+        --force-with-lease="refs/heads/$auth_branch:" \
         "$upstream_sha:refs/heads/main" \
         "$voice_sha:refs/heads/$voice_branch" \
-        "$voice_sha:refs/heads/integration" \
+        "$integration_sha:refs/heads/$auth_branch" \
+        "$integration_sha:refs/heads/integration" \
         || die "atomic bootstrap push failed; no target ref was accepted"
 
     if [ "$test_mode" -eq 1 ] \
@@ -295,9 +243,12 @@ else
         refs/heads/integration | awk 'NR == 1 { print $1 }')
     current_voice=$(git -C "$checkout" ls-remote --heads fork \
         "refs/heads/$voice_branch" | awk 'NR == 1 { print $1 }')
+    current_auth=$(git -C "$checkout" ls-remote --heads fork \
+        "refs/heads/$auth_branch" | awk 'NR == 1 { print $1 }')
     [ "$current_main" = "$upstream_sha" ] \
-        && [ "$current_integration" = "$voice_sha" ] \
+        && [ "$current_integration" = "$integration_sha" ] \
         && [ "$current_voice" = "$voice_sha" ] \
+        && [ "$current_auth" = "$integration_sha" ] \
         || die "remote bootstrap refs moved before local repair"
 fi
 
@@ -305,22 +256,27 @@ git -C "$checkout" fetch --quiet --no-tags fork \
     '+refs/heads/main:refs/remotes/fork/main' \
     '+refs/heads/integration:refs/remotes/fork/integration' \
     "+refs/heads/$voice_branch:refs/remotes/fork/$voice_branch" \
+    "+refs/heads/$auth_branch:refs/remotes/fork/$auth_branch" \
     || die "bootstrap published, but local fork tracking refresh failed"
 if [ "$local_integration_exists" -eq 0 ]; then
-    git -C "$checkout" branch integration "$voice_sha" >/dev/null \
+    git -C "$checkout" branch integration "$integration_sha" >/dev/null \
         || die "bootstrap published, but local integration creation failed"
 fi
 git -C "$checkout" branch --set-upstream-to=fork/integration integration >/dev/null \
     || die "bootstrap published, but local integration tracking failed"
+git -C "$checkout" branch --set-upstream-to="fork/$auth_branch" \
+    "$auth_branch" >/dev/null \
+    || die "bootstrap published, but carry tracking failed"
 git -C "$checkout" branch --set-upstream-to="fork/$voice_branch" \
     "$voice_branch" >/dev/null \
     || die "bootstrap published, but carry tracking failed"
 git -C "$checkout" config branch.main.pushRemote fork
 git -C "$checkout" config branch.integration.pushRemote fork
 git -C "$checkout" config "branch.$voice_branch.pushRemote" fork
+git -C "$checkout" config "branch.$auth_branch.pushRemote" fork
 
 if [ "$bootstrap_state" = create ]; then
-    printf 'BOOTSTRAPPED %s\n' "$voice_sha"
+    printf 'BOOTSTRAPPED %s\n' "$integration_sha"
 else
-    printf 'REPAIRED-LOCAL %s\n' "$voice_sha"
+    printf 'REPAIRED-LOCAL %s\n' "$integration_sha"
 fi

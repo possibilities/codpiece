@@ -22,12 +22,16 @@ baseline until the first voice-sidecar candidate has actually passed its gate.
 ## Carried state
 
 - carry/voice-sidecar: required and not yet delivered.
+- carry/fx-authorization: implementation retained at 1d9e28b607 in
+  ~/src/codex-codpiece-fx-authorization-20260831; not yet gated or published.
 
 ## Current notes
 
-- First bootstrap must explicitly create the active voice carry and Integration
-  before the normal shared namespace reconciliation can run. The authorization
-  carry is added only after voice parity.
+- First bootstrap must explicitly create the active carries and Integration
+  before the normal shared namespace reconciliation can run.
+- The paired Fx dependency shipped: carry/codex-credential-authority is in Fx
+  Integration aa3c7c55, and --codex-credential-fd is a global flag that
+  precedes the subcommand.
 - The fork Main observed at bootstrap is
   d109393270432531ac0010542ae7973801e0d9d7 and must be advanced atomically
   with the first declared namespace publication.
@@ -57,3 +61,8 @@ baseline until the first voice-sidecar candidate has actually passed its gate.
   budgets from the constrained local measurement gate.
 - 2026-08-31: Expanded the binary budget by 16 bytes for validated ChatGPT
   selected-workspace authorization; package count did not change.
+- 2026-09-03: Retired the artifact and ship gates with the AgentVoice
+  evaluation harness they depended on. The local build receipt is now the only
+  build authority, the gate emits schema-3 metadata with the credential
+  authority block, and the product is proved by a person using AgentVoice's
+  check and TUI. Activated carry/fx-authorization in the inventory.

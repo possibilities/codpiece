@@ -113,6 +113,7 @@ Workshop commit during the same requested unit of work.
 | Carry | Dependency | Required behavior |
 | --- | --- | --- |
 | carry/voice-sidecar | Main | Standalone V3 voice transport and narrow compatibility protocol with zero coding infrastructure. |
+| carry/fx-authorization | carry/voice-sidecar | Fx is the sidecar's only authorization authority, over one persistent framed channel on inherited descriptor 3. |
 
 ### Standalone V3 voice sidecar
 
@@ -155,36 +156,31 @@ Workshop commit during the same requested unit of work.
 - Retires only if upstream ships a standalone boundary satisfying this entire
   runtime and dependency contract.
 
-## Planned follow-up
-
 ### Fx-owned authorization
 
-- This is deliberately not an active carry during the voice-parity milestone.
-  When the slim voice candidate matches the oracle, add
-  carry/fx-authorization, based on carry/voice-sidecar, to the active Features
-  inventory and add its paired Fx dependency to fxnk in the same unit of work.
-- This carry has an external product dependency: Fx carry
-  carry/codex-credential-authority. Current Fx has the correct opaque session
-  loading, serialized refresh, CAS-style persistence, token rotation, expiry
-  handling, account identity, and secret scrubbing, but exposes no credential
-  lease. The Fx carry adds that missing private broker; parsing an Fx session
-  file is never an interim implementation.
+- carry/fx-authorization, based on carry/voice-sidecar.
+- Its external product dependency, Fx carry carry/codex-credential-authority,
+  shipped in Fx Integration aa3c7c55. `--codex-credential-fd` is a global Fx
+  flag, so it precedes the subcommand: `fx --codex-credential-fd 3 acp …`.
+  Parsing an Fx session file is never an interim implementation.
 - Fx is the sole authority for the configured Codex provider. One Fx login or
   configured provider supports both the orchestrator agent and realtime voice.
-- Native interactive Fx may expose the broker only with an all-or-none
-  configuration. Its directory is mode 0700, its socket mode 0600, and teardown
+- Fx exposes the broker on interactive, resume, and ACP launches, all-or-none.
+  Its directory is mode 0700, its socket mode 0600, and teardown
   removes only the socket owned by that Fx instance. AgentVoice obtains an
   already connected private descriptor from Fx and passes only that inherited
   descriptor to the sidecar; no capability appears in argv, environment,
   generic JSON-RPC, or a credential file. Broker admission binds the expected
   UID/PID, a one-time instance/session nonce, account, and generation. The
   broker remains separate from ADE telemetry and semantic work control.
-- The broker accepts one bounded schema-1 request and emits one correlated
-  response per connection. codex.credential.resolve takes a minimum validity;
-  codex.credential.refresh takes the pinned account ID and prior lease
-  generation. A successful result contains only an access token, account ID,
-  refresh deadline, optional plan metadata, and process-local generation.
-  It never returns a refresh token, serialized session, or store
+- The broker is one persistent sequential schema-1 channel on the inherited
+  descriptor: length-prefixed frames of at most 64 KiB, one request in flight,
+  every response correlated to its request, and a per-frame deadline so a
+  stalled partial frame fails rather than waits. codex.credential.resolve takes
+  a minimum validity; codex.credential.refresh takes the pinned account ID and
+  prior lease generation. A successful result contains only an access token,
+  account ID, refresh deadline, and process-local generation — no plan
+  metadata, and never a refresh token, serialized session, or store
   representation.
 - The sidecar transport depends from its first commit on a narrow asynchronous
   VoiceAuthority-to-RuntimeLease interface. The initial parity carry adapts
@@ -197,6 +193,9 @@ Workshop commit during the same requested unit of work.
 - Fx owns refresh, rotation, provider selection, account identity, and
   persistence. A voice-session renewal obtains a new lease from Fx rather than
   teaching the sidecar credential ownership.
+- Under `FX_AUTH_MODE=host-managed` Fx holds no provider credentials, so the
+  broker has nothing to lease and fails closed, exactly as it does for borrowed
+  read-only credentials.
 - Fx pins the first accepted account. Every later load, OAuth result,
   persistence operation, and broker response must match it. Refresh is
   serialized: the current generation rotates once, an older generation
@@ -268,107 +267,65 @@ fails if either mutating command changes the committed candidate. It must:
   the budgets in a paired Workshop commit and rerun before any live gate;
 - leave no server, worker, child process, or worktree behind.
 
-The local receipt names the exact fresh binary, adjacent schema-2 metadata, and
-the clean exact AgentVoice Git commit/tree plus validator/dependency-file hashes
-used to read the wire contract. Use that path for the unchanged accepted
-compact full-duplex scenario:
+The local receipt names the exact fresh binary, its adjacent schema-3
+metadata, and the candidate commit and tree. That receipt is the whole of the
+build authority; the evaluation harness that once produced a second and third
+receipt no longer exists, and nothing replaced it.
 
-~~~sh
-binary=$(jq -r '.binary' \
-  "${XDG_STATE_HOME:-$HOME/.local/state}/codpiece/local-builds/$candidate_sha.json")
-cd ~/code/agentvoice
-bun run eval:codex-fx -- \
-  fixtures/compact-full-duplex/scenario.json \
-  --voice-sidecar "$binary"
-~~~
+Proof that the product works is a person using it. AgentVoice ships
+`bun run check`, which starts the real backend and sidecar, connects the
+WebRTC peer, and makes the voice agent speak through the handoff path without
+opening an audio device, and `bun run tui`, which is the thing itself. Run the
+check after building a candidate; run the TUI before trusting one.
 
-Its immutable result must prove:
+Whatever the surface, the invariant is unchanged.
+A session must show zero Codex work turns: the sidecar delegates everything
+and starts no coding turn of its own.
 
-- four delegations and three Fx work turns;
-- one true in-flight steering request;
-- seven ordered Fx speech appends;
-- decoded PCM full-duplex overlap;
-- five of five workspace-oracle checks;
-- zero Codex work turns and zero turn/started notifications;
-- no MCP notifications or child processes;
-- visible raw handoff events, no reconnect duplication, and exactly one
-  requested close;
-- an audio comparison recording and hash-bound evaluation inputs.
+When Fx-owned authorization is exercised, the same session must show that Fx
+was the only provider authority and that the sidecar touched no credential
+store.
 
-Validate and hash-bind that exact artifact before any publication:
-
-~~~sh
-~/code/codpiece/scripts/artifact-gate.sh \
-  --worktree "$candidate_worktree" \
-  --sha "$candidate_sha" \
-  --artifact "$artifact_directory"
-~~~
-
-The artifact gate revalidates the binary and metadata, all scenario and audio
-hashes, the consumed wire contract, strict no-fork isolation, every proof above,
-and the unchanged clean AgentVoice validator provenance from the local receipt.
-Only its current-contract receipt authorizes publication. On ordinary cycles,
-publish the exact Integration commit with the lease captured before refresh. On
-the first cycle, use the one-use bootstrap command in Branch model. Then reread
-the still-published remote, rerun the same clean AgentVoice validator
-provenance, and convert the artifact receipt into an installable ship receipt:
-
-~~~sh
-~/code/codpiece/scripts/ship-gate.sh \
-  --worktree "$candidate_worktree" \
-  --sha "$candidate_sha"
-~~~
-
-When Fx-owned authorization becomes active, the same run must additionally
-prove that Fx was the only provider authority and that the sidecar touched no
-credential store.
-
-No hosted CI proof is required. The targeted local gate and live AgentVoice
-artifact are the blocking authorities because the private realtime backend and
+No hosted CI proof is required. The targeted local gate and a live session
+are the blocking authorities, because the private realtime backend and the
 full-duplex audio path cannot be proved by upstream CI.
 
-Never run the full Codex test suite or a parallel release build as part of this
-gate.
+Never run the full Codex test suite or a parallel release build as part of
+this gate.
 
 ## Consumer
 
-AgentVoice consumes only an exact published Integration binary with a current
-ship receipt. After the ship gate succeeds, run:
+AgentVoice consumes an exact published Integration binary:
 
 ~~~sh
 ~/code/codpiece/scripts/install.sh --install --sha "$integration_sha"
 ~~~
 
-The installer verifies private mode-0600 local-build, artifact-gate, and ship
-receipts under the current gate contract, including their hash chain, complete
-AgentVoice artifact hashes, and the clean AgentVoice validator provenance bound
-at gate time. It rereads the fork remote and published Integration SHA, builds
-that exact commit detached in a SHA-isolated target under the Gate resource
-limits, and requires byte-for-byte equality with the gated binary. This
-detached rebuild is the first reproducibility proof in the consumer path: if it
-does not match, the install fails closed after publication and before pointer
-activation. It removes its build worktree before activation, rereads the remote
-immediately before atomically moving the sole consumer symlink to an immutable
-SHA directory, and rolls that pointer back if post-activation verification
-fails. The immutable install receipt names the immutable binary path and
-metadata hash; existing immutable directories are accepted only when their
-metadata bytes and private receipt still match the ship receipt. Current build,
-artifact, and ship receipts remain under the codpiece state directory. It never
-rebases, publishes, chooses features, changes the official Codex CLI, or
-imports credentials.
+The installer verifies the private mode-0600 local-build receipt under the
+current gate contract, and the sidecar metadata bound to it. It rereads the
+fork remote and published Integration SHA, builds that exact commit detached
+in a SHA-isolated target under the Gate resource limits, and requires
+byte-for-byte equality with the gated binary. That detached rebuild is the
+reproducibility proof in the consumer path: if it does not match, the install
+fails closed after publication and before pointer activation. It removes its
+build worktree before activation, rereads the remote immediately before
+atomically moving the sole consumer symlink to an immutable SHA directory, and
+rolls that pointer back if post-activation verification fails. The immutable
+install receipt names the immutable binary path, its metadata hash, and the
+build receipt it came from; an existing immutable directory is accepted only
+when its metadata bytes and private receipt still match. It never rebases,
+publishes, chooses features, changes the official Codex CLI, or imports
+credentials.
 
 `CODPIECE_TESTING=1` is only for local filesystem fixtures. In test mode,
 scripts that would otherwise skip canonical GitHub remote checks must reject
-GitHub, SSH, and other non-file remotes before any fetch, push, ship, or install
+GitHub, SSH, and other non-file remotes before any fetch, push, or install
 operation.
 
 The sole moving pointer is `~/.local/lib/codpiece/current`; the stable binary
 link resolves through it, and AgentVoice reads
 `~/.local/lib/codpiece/current/install.json` rather than a moving branch or
-ambient binary. Its codex-fx contender must accept the codpiece product
-identity while retaining all zero-turn and artifact validation. The accepted
-full App-server-based contender remains available as the reference oracle
-until a human explicitly retires it.
+ambient binary.
 
 Any persistent fleet installer or launcher that begins invoking codpiece must
 call this Workshop consumer and update the maintained fleet dependency map in

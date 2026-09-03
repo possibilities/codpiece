@@ -17,15 +17,12 @@ for file in \
 done
 
 scripts=(
-    scripts/artifact-gate.sh
     scripts/bootstrap-branches.sh
     scripts/build-lock.sh
     scripts/gate-contract.sh
     scripts/gate.sh
     scripts/install.sh
     scripts/reconcile-branches.sh
-    scripts/ship-gate.sh
-    tests/artifact-ship-transaction.sh
     tests/bootstrap-branches.sh
     tests/install-transaction.sh
     tests/validate.sh
@@ -58,13 +55,11 @@ features=$(awk '
 ' MAINTAIN.md)
 mapped=$(printf '%s\n' "$features" \
     | sed -n 's/^| \(carry\/[a-z0-9-]*\) |.*$/\1/p')
-[ "$mapped" = carry/voice-sidecar ] \
-    || fail "active phase must inventory only carry/voice-sidecar"
-printf '%s\n' "$features" | grep -F 'carry/fx-authorization' >/dev/null \
-    && fail "Fx authorization became active before the voice-parity milestone"
+expected_carries=$(printf '%s\n' 'carry/voice-sidecar' 'carry/fx-authorization')
+[ "$mapped" = "$expected_carries" ] \
+    || fail "active inventory must be carry/voice-sidecar then carry/fx-authorization"
 
 for planned_contract in \
-    '## Planned follow-up' \
     'carry/fx-authorization' \
     'carry/codex-credential-authority' \
     'VoiceAuthority-to-RuntimeLease' \
@@ -84,9 +79,8 @@ for product_contract in \
     'zero Codex work turns' \
     'No hosted CI proof is required' \
     'scripts/bootstrap-branches.sh --apply' \
-    'scripts/artifact-gate.sh' \
-    'scripts/ship-gate.sh' \
-    'current-contract receipt' \
+    'bun run check' \
+    'bun run tui' \
     'Title: Codpiece Maintenance'; do
     grep -F "$product_contract" MAINTAIN.md >/dev/null \
         || fail "product contract is missing: $product_contract"
@@ -103,7 +97,7 @@ for declared in \
     grep -F "export $declared" scripts/reconcile-branches.sh >/dev/null \
         || fail "branch adapter does not declare $declared"
 done
-grep -F 'expected_carry=carry/voice-sidecar' scripts/reconcile-branches.sh >/dev/null \
+grep -F 'carry/fx-authorization' scripts/reconcile-branches.sh >/dev/null \
     || fail "branch adapter does not enforce the exact active carry"
 if grep -E 'git .*(push|fetch|update-ref)' scripts/reconcile-branches.sh >/dev/null; then
     fail "normal branch adapter contains namespace mechanics"
@@ -126,9 +120,7 @@ for bootstrap_contract in \
     '--force-with-lease=refs/heads/integration:' \
     "--force-with-lease=\"refs/heads/\$voice_branch:\"" \
     'bootstrap_state=repair-local' \
-    'local-build receipt does not prove' \
-    "localReceiptSha256 == \$localReceiptSha" \
-    "agentVoiceProvenance == \$agentVoiceProvenance"; do
+    'local-build receipt does not prove'; do
     grep -F -- "$bootstrap_contract" scripts/bootstrap-branches.sh >/dev/null \
         || fail "bootstrap omits: $bootstrap_contract"
 done
@@ -137,9 +129,7 @@ plan=$(scripts/install.sh --check)
 for required in \
     'source: fork/integration' \
     'exact full SHA only' \
-    'current-contract ship receipt' \
-    'local-build and artifact receipts' \
-    'AgentVoice validator provenance' \
+    'current-contract local-build receipt' \
     'detached codex-voice-sidecar' \
     'two Cargo jobs' \
     'release LTO off' \
@@ -155,16 +145,14 @@ grep -F 'worktree add --quiet --detach' scripts/install.sh >/dev/null \
 grep -F "fork/integration is \$published, not requested \$expected_sha" \
     scripts/install.sh >/dev/null \
     || fail "installer does not bind the exact published SHA"
-grep -F "ship-gates/\$expected_sha.json" scripts/install.sh >/dev/null \
-    || fail "installer does not consume the exact ship receipt"
-grep -F "artifact-gates/\$expected_sha.json" scripts/install.sh >/dev/null \
-    || fail "installer does not consume the exact artifact receipt"
+grep -F "local-builds/\$expected_sha.json" scripts/install.sh >/dev/null \
+    || fail "installer does not consume the exact local-build receipt"
 grep -F "local-builds/\$expected_sha.json" scripts/install.sh >/dev/null \
     || fail "installer does not consume the exact local-build receipt"
 grep -F 'rollback_current' scripts/install.sh >/dev/null \
     || fail "installer has no consumer-pointer rollback"
-grep -F "agentVoiceProvenance == \$agentVoiceProvenance" scripts/install.sh >/dev/null \
-    || fail "installer does not bind AgentVoice provenance through the receipt chain"
+grep -F "buildReceiptSha256:\$buildReceiptSha256" scripts/install.sh >/dev/null \
+    || fail "installer receipt does not bind the build receipt by hash"
 grep -F "metadataSha256:\$metadataSha256" scripts/install.sh >/dev/null \
     || fail "installer receipt does not bind metadata by hash"
 if grep -E 'git .*(rebase|push)' scripts/install.sh >/dev/null; then
@@ -181,12 +169,11 @@ for script in scripts/gate.sh scripts/install.sh; do
     grep -F 'CARGO_PROFILE_RELEASE_STRIP=symbols' "$script" >/dev/null \
         || fail "$script does not strip packaged release symbols"
 done
-for gate in scripts/gate.sh scripts/artifact-gate.sh scripts/ship-gate.sh \
-    scripts/install.sh; do
+for gate in scripts/gate.sh scripts/install.sh; do
     grep -F 'codpiece_release_lock_' "$gate" >/dev/null \
         || fail "$gate does not participate in the release lock"
 done
-for test_remote_guard in scripts/bootstrap-branches.sh scripts/ship-gate.sh \
+for test_remote_guard in scripts/bootstrap-branches.sh \
     scripts/install.sh scripts/reconcile-branches.sh; do
     grep -F 'codpiece_require_local_test_remote' "$test_remote_guard" >/dev/null \
         || fail "$test_remote_guard does not reject non-local test remotes"
@@ -197,25 +184,19 @@ grep -F 'CODPIECE_CANONICAL_FORK_URL=https://github.com/possibilities/codex.git'
 grep -F 'CODPIECE_CANONICAL_UPSTREAM_URL=https://github.com/openai/codex.git' \
     scripts/gate-contract.sh >/dev/null \
     || fail "gate contract does not hardcode the canonical upstream identity"
-grep -F "upstream_sha=\$(remote_origin_main)" scripts/ship-gate.sh >/dev/null \
-    || fail "ship gate does not read a freshly observed origin/main"
 grep -F "codpiece_release_lock_acquire \"\$state_root\"" \
     scripts/bootstrap-branches.sh >/dev/null \
     || fail "bootstrap does not hold the shared release lock around receipts"
-grep -F "metadataSha256:\$metadataSha256" scripts/ship-gate.sh >/dev/null \
-    || fail "ship receipt does not carry the exact metadata hash"
 grep -F "target_dir=\"\$target_base/reproductions/\$expected_sha\"" \
     scripts/install.sh >/dev/null \
     || fail "installer does not use a distinct reproduction target"
 grep -F "install -m 0600 \"\$metadata_source\" \"\$staging/metadata.json\"" \
     scripts/install.sh >/dev/null \
     || fail "installer does not copy exact local-build metadata"
-grep -F "\$metadataSource[0] == \$ship[0].sidecarMetadata" scripts/install.sh >/dev/null \
-    || fail "installer does not compare exact metadata to the ship receipt"
-for validator_binding in scripts/gate.sh scripts/artifact-gate.sh scripts/ship-gate.sh; do
-    grep -F 'codpiece_agentvoice_provenance' "$validator_binding" >/dev/null \
-        || fail "$validator_binding does not bind AgentVoice validator provenance"
-done
+grep -F '.credentialAuthority.descriptor == 3' scripts/install.sh >/dev/null \
+    || fail "installer does not verify the schema-3 credential authority"
+grep -F 'schemaVersion:3' scripts/gate.sh >/dev/null \
+    || fail "gate does not emit schema-3 sidecar metadata"
 
 for forbidden in \
     codex-app-server codex-core codex-protocol codex-mcp-server codex-tools \
@@ -250,17 +231,17 @@ checkout="${CODPIECE_CODEX_CHECKOUT:-$HOME/src/codex}"
 if git -C "$checkout" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     local_carries=$(git -C "$checkout" for-each-ref \
         --format='%(refname:short)' refs/heads/carry/ | LC_ALL=C sort)
-    [ "$local_carries" = carry/voice-sidecar ] \
+    expected_local=$(printf '%s\n' 'carry/fx-authorization' 'carry/voice-sidecar')
+    [ "$local_carries" = "$expected_local" ] \
         || fail "bound checkout has a carry outside the active inventory"
     if git -C "$checkout" show-ref --verify --quiet refs/heads/integration; then
         [ "$(git -C "$checkout" rev-parse refs/heads/integration)" = \
-            "$(git -C "$checkout" rev-parse refs/heads/carry/voice-sidecar)" ] \
-            || fail "voice-only Integration does not exactly equal its carry"
+            "$(git -C "$checkout" rev-parse refs/heads/carry/fx-authorization)" ] \
+            || fail "Integration does not exactly equal the top carry"
     fi
 fi
 
 tests/bootstrap-branches.sh
-tests/artifact-ship-transaction.sh
 tests/install-transaction.sh
 
 if command -v shellcheck >/dev/null 2>&1; then

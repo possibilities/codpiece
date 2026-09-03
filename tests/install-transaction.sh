@@ -82,60 +82,19 @@ EOF
 
     contract_sha=$(codpiece_gate_contract_digest "$root") \
         || fail "could not hash gate contract"
-    wire_sha=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
     dependency_sha=7777777777777777777777777777777777777777777777777777777777777777
-    mkdir -p "$state/local-builds" "$state/artifact-gates" "$state/ship-gates" \
-        "$case_root/artifact"
-    agentvoice_provenance=$(jq -n \
-        --arg root "$case_root/agentvoice" \
-        --arg commit "$candidate_sha" \
-        --arg tree "$candidate_tree" \
-        --arg validator "$case_root/agentvoice/src/codpiece-artifact-validator-cli.ts" \
-        '{schemaVersion:1,repository:"agentvoice",root:$root,
-          commitSha:$commit,treeSha:$tree,
-          validator:{path:$validator,
-            repositoryPath:"src/codpiece-artifact-validator-cli.ts",
-            sha256:"8888888888888888888888888888888888888888888888888888888888888888"},
-          dependencyFiles:[
-            {repositoryPath:"package.json",
-             sha256:"9999999999999999999999999999999999999999999999999999999999999999"},
-            {repositoryPath:"bun.lock",
-             sha256:"abababababababababababababababababababababababababababababababab"}
-          ]}')
-    agentvoice_receipt=$(jq -n \
-        --arg sha "$candidate_sha" \
-        --arg binarySha "$binary_sha" \
-        --arg binaryVersion "$binary_version" \
-        --arg wire "$wire_sha" \
-        --arg artifact "$case_root/artifact" \
-        '{schemaVersion:1,status:"accepted",candidateSha:$sha,
-          binarySha256:$binarySha,binaryVersion:$binaryVersion,
-          wireContractSha256:$wire,
-          artifact:{path:$artifact,
-            manifestSha256:"1111111111111111111111111111111111111111111111111111111111111111",
-            eventsSha256:"2222222222222222222222222222222222222222222222222222222222222222",
-            scenarioSha256:"3333333333333333333333333333333333333333333333333333333333333333",
-            evaluationInputReceiptSha256:"4444444444444444444444444444444444444444444444444444444444444444",
-            comparisonWavSha256:"5555555555555555555555555555555555555555555555555555555555555555",
-            inputWavSha256:"6666666666666666666666666666666666666666666666666666666666666666",
-            outputWavSha256:"7777777777777777777777777777777777777777777777777777777777777777",
-            declaredEvidenceSha256:{
-              events:"2222222222222222222222222222222222222222222222222222222222222222",
-              scenario:"3333333333333333333333333333333333333333333333333333333333333333",
-              evaluationInputReceipt:"4444444444444444444444444444444444444444444444444444444444444444",
-              comparisonAudio:"5555555555555555555555555555555555555555555555555555555555555555",
-              inputAudio:"6666666666666666666666666666666666666666666666666666666666666666",
-              outputAudio:"7777777777777777777777777777777777777777777777777777777777777777"}}}')
+    mkdir -p "$state/local-builds"
     sidecar_metadata=$(jq -n \
         --arg sha "$candidate_sha" \
         --arg binarySha "$binary_sha" \
         --arg binaryVersion "$binary_version" \
-        --arg wire "$wire_sha" \
-        '{schemaVersion:2,implementation:"codex-voice-sidecar",
+        '{schemaVersion:3,implementation:"codex-voice-sidecar",
           sourceRepository:"possibilities/codex",sourceRevision:$sha,
-          upstreamRevision:$sha,wireContractVersion:1,
-          wireContractSha256:$wire,builtAt:"2026-08-30T00:00:00Z",
-          binarySha256:$binarySha,binaryVersion:$binaryVersion}')
+          upstreamRevision:$sha,builtAt:"2026-08-30T00:00:00Z",
+          binarySha256:$binarySha,binaryVersion:$binaryVersion,
+          credentialAuthority:{owner:"fx",provider:"codex",
+            transport:"inherited-fd",descriptor:3,protocolVersion:1,
+            maxFrameBytes:65536}}')
     printf '%s\n' "$sidecar_metadata" >"$metadata_source"
     chmod 0600 "$metadata_source"
     metadata_sha=$(shasum -a 256 "$metadata_source" | awk '{print $1}')
@@ -146,67 +105,21 @@ EOF
         --arg contract "$contract_sha" \
         --arg binarySha "$binary_sha" \
         --arg binaryVersion "$binary_version" \
-        --arg wire "$wire_sha" \
         --arg metadata "$metadata_source" \
         --arg metadataSha "$metadata_sha" \
         --arg dependencySha "$dependency_sha" \
-        --argjson agentVoiceProvenance "$agentvoice_provenance" \
         '{schemaVersion:1,status:"local-pass",candidateSha:$sha,
           candidateTree:$tree,upstream:{ref:"origin/main",sha:$sha},
-          gateContractSha256:$contract,wireContract:{version:1,sha256:$wire},
+          gateContractSha256:$contract,
           package:"codex-voice-sidecar",binary:"/tmp/codex-voice-sidecar",
           binarySha256:$binarySha,binaryVersion:$binaryVersion,
           binaryBytes:1,metadata:$metadata,metadataSha256:$metadataSha,
           dependencyCount:1,dependencyGraphSha256:$dependencySha,
-          agentVoiceProvenance:$agentVoiceProvenance,
           budgetsEnforced:true,
           build:{cargoJobs:2,releaseLto:false,releaseCodegenUnits:1},
           recordedAt:"2026-08-30T00:00:00Z"}' \
         >"$local_receipt"
     chmod 0600 "$local_receipt"
-    local_receipt_sha=$(shasum -a 256 "$local_receipt" | awk '{print $1}')
-    artifact_receipt="$state/artifact-gates/$candidate_sha.json"
-    jq -n \
-        --arg sha "$candidate_sha" \
-        --arg tree "$candidate_tree" \
-        --arg contract "$contract_sha" \
-        --arg localReceipt "$local_receipt" \
-        --arg localReceiptSha "$local_receipt_sha" \
-        --argjson agentVoiceProvenance "$agentvoice_provenance" \
-        --argjson agentVoice "$agentvoice_receipt" \
-        '{schemaVersion:1,status:"artifact-pass",candidateSha:$sha,
-          candidateTree:$tree,gateContractSha256:$contract,
-          localReceipt:$localReceipt,localReceiptSha256:$localReceiptSha,
-          agentVoiceProvenance:$agentVoiceProvenance,
-          agentVoice:$agentVoice,recordedAt:"2026-08-30T00:00:00Z"}' \
-        >"$artifact_receipt"
-    chmod 0600 "$artifact_receipt"
-    artifact_receipt_sha=$(shasum -a 256 "$artifact_receipt" | awk '{print $1}')
-    ship_receipt="$state/ship-gates/$candidate_sha.json"
-    jq -n \
-        --arg sha "$candidate_sha" \
-        --arg tree "$candidate_tree" \
-        --arg contract "$contract_sha" \
-        --arg localReceiptSha "$local_receipt_sha" \
-        --arg artifactReceiptSha "$artifact_receipt_sha" \
-        --arg binarySha "$binary_sha" \
-        --arg binaryVersion "$binary_version" \
-        --arg metadataSha "$metadata_sha" \
-        --argjson agentVoiceProvenance "$agentvoice_provenance" \
-        --argjson agentVoice "$agentvoice_receipt" \
-        --argjson sidecarMetadata "$sidecar_metadata" \
-        '{schemaVersion:1,status:"ship",candidateSha:$sha,
-          candidateTree:$tree,source:"possibilities/codex:integration",
-          upstreamSha:$sha,gateContractSha256:$contract,
-          localReceiptSha256:$localReceiptSha,
-          artifactReceiptSha256:$artifactReceiptSha,
-          binarySha256:$binarySha,binaryVersion:$binaryVersion,
-          metadataSha256:$metadataSha,
-          agentVoiceProvenance:$agentVoiceProvenance,
-          sidecarMetadata:$sidecarMetadata,agentVoice:$agentVoice,
-          recordedAt:"2026-08-30T00:00:00Z"}' \
-        >"$ship_receipt"
-    chmod 0600 "$ship_receipt"
 }
 
 install_candidate() {
@@ -236,24 +149,6 @@ expect_install_failure() {
         || fail "installation failure did not explain: $expected"
 }
 
-refresh_receipt_chain_after_local_edit() {
-    local_receipt_sha=$(shasum -a 256 "$local_receipt" | awk '{print $1}')
-    jq --arg localReceiptSha "$local_receipt_sha" \
-        '.localReceiptSha256 = $localReceiptSha' \
-        "$artifact_receipt" >"$artifact_receipt.tmp"
-    mv "$artifact_receipt.tmp" "$artifact_receipt"
-    chmod 0600 "$artifact_receipt"
-    artifact_receipt_sha=$(shasum -a 256 "$artifact_receipt" | awk '{print $1}')
-    jq --arg localReceiptSha "$local_receipt_sha" \
-        --arg artifactReceiptSha "$artifact_receipt_sha" \
-        --arg metadataSha "$metadata_sha" \
-        '.localReceiptSha256 = $localReceiptSha |
-         .artifactReceiptSha256 = $artifactReceiptSha |
-         .metadataSha256 = $metadataSha' \
-        "$ship_receipt" >"$ship_receipt.tmp"
-    mv "$ship_receipt.tmp" "$ship_receipt"
-    chmod 0600 "$ship_receipt"
-}
 
 assert_clean_runtime() {
     [ ! -e "$state/release.lock" ] \
@@ -373,12 +268,12 @@ new_fixture invalid-immutable-metadata
 invalid_version="$install_root/versions/$candidate_sha"
 mkdir -p "$invalid_version"
 install -m 0755 "$fake_binary" "$invalid_version/codex-voice-sidecar"
-jq -S '.sidecarMetadata | .wireContractSha256 =
-    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"' \
-    "$ship_receipt" >"$invalid_version/metadata.json"
+jq -S '.credentialAuthority.descriptor = 4' \
+    "$metadata_source" >"$invalid_version/metadata.json"
 tampered_metadata_sha=$(shasum -a 256 "$invalid_version/metadata.json" \
     | awk '{print $1}')
-ship_receipt_sha=$(shasum -a 256 "$ship_receipt" | awk '{print $1}')
+
+local_receipt_sha=$(shasum -a 256 "$local_receipt" | awk '{print $1}')
 jq -n \
     --arg sha "$candidate_sha" \
     --arg binary "$invalid_version/codex-voice-sidecar" \
@@ -386,44 +281,33 @@ jq -n \
     --arg binaryVersion "$binary_version" \
     --arg metadata "$invalid_version/metadata.json" \
     --arg metadataSha "$tampered_metadata_sha" \
-    --arg shipReceipt "$ship_receipt" \
-    --arg shipReceiptSha "$ship_receipt_sha" \
+    --arg buildReceipt "$local_receipt" \
+    --arg buildReceiptSha "$local_receipt_sha" \
     '{schemaVersion:1,integrationSha:$sha,
       source:"possibilities/codex:integration",
       package:"codex-voice-sidecar",binary:$binary,
       binarySha256:$binarySha,binaryVersion:$binaryVersion,
       metadata:$metadata,metadataSha256:$metadataSha,
-      shipReceipt:$shipReceipt,shipReceiptSha256:$shipReceiptSha,
+      buildReceipt:$buildReceipt,buildReceiptSha256:$buildReceiptSha,
       installedAt:"2026-08-30T00:00:00Z"}' \
     >"$invalid_version/install.json"
 chmod 0600 "$invalid_version/metadata.json" "$invalid_version/install.json"
-expect_install_failure 'metadata does not match the ship receipt' install_candidate
+expect_install_failure 'metadata does not match the local-build receipt' install_candidate
 [ ! -e "$install_root/current" ] && [ ! -e "$binary_link" ] \
     || fail "tampered immutable metadata moved a consumer pointer"
 assert_clean_runtime
 
-new_fixture shallow-ship-receipt
+new_fixture shallow-build-receipt
 jq -n \
     --arg sha "$candidate_sha" \
     --arg contract "$contract_sha" \
-    --arg binarySha "$binary_sha" \
-    --arg binaryVersion "$binary_version" \
-    '{schemaVersion:1,status:"ship",candidateSha:$sha,
-      source:"possibilities/codex:integration",
-      gateContractSha256:$contract,binarySha256:$binarySha,
-      binaryVersion:$binaryVersion,agentVoice:{status:"accepted"},
-      sidecarMetadata:{schemaVersion:2,
-        implementation:"codex-voice-sidecar",
-        sourceRepository:"possibilities/codex",sourceRevision:$sha,
-        upstreamRevision:$sha,wireContractVersion:1,
-        wireContractSha256:"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        builtAt:"2026-08-30T00:00:00Z",binarySha256:$binarySha,
-        binaryVersion:$binaryVersion}}' \
-    >"$ship_receipt"
-chmod 0600 "$ship_receipt"
-expect_install_failure 'ship receipt does not authorize' install_candidate
+    '{schemaVersion:1,status:"local-pass",candidateSha:$sha,
+      gateContractSha256:$contract,budgetsEnforced:true}' \
+    >"$local_receipt"
+chmod 0600 "$local_receipt"
+expect_install_failure 'local-build receipt does not prove' install_candidate
 [ ! -e "$install_root/current" ] && [ ! -e "$binary_link" ] \
-    || fail "shallow ship receipt moved a consumer pointer"
+    || fail "shallow build receipt moved a consumer pointer"
 assert_clean_runtime
 
 new_fixture mismatched-local-binary
@@ -432,8 +316,7 @@ jq '.binarySha256 =
     "$local_receipt" >"$local_receipt.tmp"
 mv "$local_receipt.tmp" "$local_receipt"
 chmod 0600 "$local_receipt"
-refresh_receipt_chain_after_local_edit
-expect_install_failure 'artifact-gate receipt does not prove' install_candidate
+expect_install_failure 'sidecar metadata does not describe this candidate' install_candidate
 [ ! -e "$install_root/current" ] && [ ! -e "$binary_link" ] \
     || fail "mismatched local binary receipt moved a consumer pointer"
 assert_clean_runtime
@@ -449,8 +332,7 @@ jq --arg metadataSha "$metadata_sha" \
     "$local_receipt" >"$local_receipt.tmp"
 mv "$local_receipt.tmp" "$local_receipt"
 chmod 0600 "$local_receipt"
-refresh_receipt_chain_after_local_edit
-expect_install_failure 'local-build metadata bytes do not match the ship receipt' \
+expect_install_failure 'sidecar metadata does not describe this candidate' \
     install_candidate
 [ ! -e "$install_root/current" ] && [ ! -e "$binary_link" ] \
     || fail "mismatched local metadata moved a consumer pointer"
