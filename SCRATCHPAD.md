@@ -40,9 +40,10 @@ baseline until the first voice-sidecar candidate has actually passed its gate.
   pending an explicit operator decision: either bootstrap and publish
   Integration so AgentVoice can delete the fallback and call this Workshop's
   installer, or revise the consumer ownership contract in a paired change.
-- The paired Fx dependency shipped: carry/codex-credential-authority is in Fx
-  Integration aa3c7c55, and --codex-credential-fd is a global flag that
-  precedes the subcommand.
+- The paired Fx dependency first shipped in Fx Integration aa3c7c55 and the
+  currently installed Fx Integration is e1b20262ba4b. The broker wire fields
+  and framing relevant to Codpiece are unchanged between those revisions.
+  --codex-credential-fd is a global flag that precedes the subcommand.
 - The fork Main observed at bootstrap is
   d109393270432531ac0010542ae7973801e0d9d7 and must be advanced atomically
   with the first declared namespace publication.
@@ -122,6 +123,12 @@ baseline until the first voice-sidecar candidate has actually passed its gate.
   model speech reached the harness. That check did not exercise delegation;
   live acceptance of an `item_id` append remains pending the operator's spoken
   delegation run.
+- After Fx Integration e1b20262ba4b replaced aa3c7c55 mid-session, AgentVoice
+  reran the full check against the same 76dbcecdb7 sidecar with voice juniper.
+  Fx authorization and WebRTC connected, five downlink RTP packets decoded,
+  and 3.6 seconds of audible model speech reached the harness. A source diff
+  independently confirmed that the schema-1 hello, nonce, exact request fields,
+  operation parameters, and response deadline field had not changed.
 
 ## History
 
