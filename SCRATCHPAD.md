@@ -32,6 +32,13 @@ baseline until the first voice-sidecar candidate has actually passed its gate.
 
 - First bootstrap must explicitly create the active carries and Integration
   before the normal shared namespace reconciliation can run.
+- AgentVoice currently has an operator-directed repo-local fallback that builds
+  carry/fx-authorization when no Workshop installation exists. Explicit binary
+  selection and `~/.local/lib/codpiece/current/install.json` take precedence.
+  This conflicts with the permanent Integration-only consumer contract and is
+  pending an explicit operator decision: either bootstrap and publish
+  Integration so AgentVoice can delete the fallback and call this Workshop's
+  installer, or revise the consumer ownership contract in a paired change.
 - The paired Fx dependency shipped: carry/codex-credential-authority is in Fx
   Integration aa3c7c55, and --codex-credential-fd is a global flag that
   precedes the subcommand.
