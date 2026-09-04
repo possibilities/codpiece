@@ -124,7 +124,8 @@ Workshop commit during the same requested unit of work.
 - Expose only the App-server-compatible JSON-RPC surface AgentVoice needs:
   initialize, initialized, thread/realtime/listVoices, thread/start,
   thread/realtime/start, thread/realtime/appendSpeech,
-  thread/realtime/stop, and idempotent thread/delete.
+  thread/realtime/appendDelegationContext, thread/realtime/stop, and
+  idempotent thread/delete.
 - thread/start creates only an ephemeral in-memory synthetic voice thread. It
   never loads history, configuration for coding work, skills, tools, MCP,
   approvals, rollouts, or a workspace session.
@@ -135,9 +136,14 @@ Workshop commit during the same requested unit of work.
   V3 path are not part of this product.
 - Retain only V3 WebRTC call creation, AVAS sideband connection and bounded
   reconnection, transcript and delegation parsing, active-transcript tracking,
-  speakable session-context append, and deterministic shutdown and transport
-  errors. Omit V1, V2, websocket media, Responses API integration, and internal
-  coding-turn routing.
+  session- and delegation-context append, and deterministic shutdown and
+  transport errors. Omit V1, V2, websocket media, Responses API integration,
+  and internal coding-turn routing.
+- Context appends preserve Codex's 500-byte UTF-8-safe chunking and accept
+  speakable, commentary, or thinking channels. Thinking omits the wire channel
+  field entirely; an absent compatibility parameter remains speakable.
+  Delegation-scoped appends pass the surfaced handoff ID through as
+  delegation_item_id and use the same wire message for progress and completion.
 - Client-managed delegation is intrinsic. Raw handoff requests remain visible,
   but no switch can enable automatic Codex delegation or transcript-tail
   routing.

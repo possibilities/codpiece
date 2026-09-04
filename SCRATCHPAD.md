@@ -21,10 +21,11 @@ baseline until the first voice-sidecar candidate has actually passed its gate.
 
 ## Carried state
 
-- carry/voice-sidecar: required and not yet delivered.
-- carry/fx-authorization: implementation retained at 1d9e28b607 in
-  the `carry/fx-authorization` ref of `~/source/openai--codex`; not yet gated
-  or published.
+- carry/voice-sidecar: current-Main implementation retained at 1c82d0c2a9,
+  including session- and delegation-context appends; not yet published.
+- carry/fx-authorization: recomposed above the current voice carry at
+  56d4898991 in the `carry/fx-authorization` ref of
+  `~/source/openai--codex`; not yet published.
 
 ## Current notes
 
@@ -53,6 +54,14 @@ baseline until the first voice-sidecar candidate has actually passed its gate.
 - Production selected-workspace support at
   fe3bad9abfe0be8e662604694dfc99536a70dbb3 adds 16 binary bytes, for a
   reviewed 3,563,488-byte budget; the dependency budget remains 129.
+- The current-Main, Fx-authorized delegation-context composition at
+  56d4898991c6dc8fc6830b12d70a95f5a96eaf0f measures 3,634,320 binary
+  bytes and 127 unique normal/build packages. Those exact values are the
+  reviewed current budgets; the feature added no dependency declarations.
+- That exact composition passed the constrained local gate. Its private
+  schema-1 receipt is
+  ~/.local/state/codpiece/local-builds/56d4898991c6dc8fc6830b12d70a95f5a96eaf0f.json;
+  it remains unpublished and uninstalled.
 
 ## History
 
@@ -67,3 +76,6 @@ baseline until the first voice-sidecar candidate has actually passed its gate.
   build authority, the gate emits schema-3 metadata with the credential
   authority block, and the product is proved by a person using AgentVoice's
   check and TUI. Activated carry/fx-authorization in the inventory.
+- 2026-09-04: Rebased both active carries onto current Main, added Codex-parity
+  channel selection and delegation-context append, and reviewed the first
+  complete active-carry size and dependency budgets.
