@@ -23,9 +23,9 @@ baseline until the first voice-sidecar candidate has actually passed its gate.
 
 - carry/voice-sidecar: current-Main implementation retained at 1c82d0c2a9,
   including session- and delegation-context appends; not yet published.
-- carry/fx-authorization: recomposed above the current voice carry at
-  56d4898991 in the `carry/fx-authorization` ref of
-  `~/source/openai--codex`; not yet published.
+- carry/fx-authorization: current Fx broker schema-1 implementation retained at
+  ac90b0fb3c, including the hello nonce handshake and exact request/response
+  wire contract; not yet published.
 
 ## Current notes
 
@@ -57,11 +57,22 @@ baseline until the first voice-sidecar candidate has actually passed its gate.
 - The current-Main, Fx-authorized delegation-context composition at
   56d4898991c6dc8fc6830b12d70a95f5a96eaf0f measures 3,634,320 binary
   bytes and 127 unique normal/build packages. Those exact values are the
-  reviewed current budgets; the feature added no dependency declarations.
+  reviewed then-current budgets; the feature added no dependency declarations.
 - That exact composition passed the constrained local gate. Its private
   schema-1 receipt is
   ~/.local/state/codpiece/local-builds/56d4898991c6dc8fc6830b12d70a95f5a96eaf0f.json;
   it remains unpublished and uninstalled.
+- The complete Fx broker schema-1 wire correction at
+  ac90b0fb3c02aceec27c0749405a71127096710a measures 3,651,376 binary bytes
+  and 127 unique normal/build packages. The reviewed 17,056-byte growth adds
+  the hello/nonce state, exact Fx field shapes, checked deadline conversion,
+  bounded partial-frame handling, and terminal unauthorized behavior without
+  adding a dependency.
+- That exact candidate passed the constrained local gate. Its private
+  schema-1 receipt is
+  ~/.local/state/codpiece/local-builds/ac90b0fb3c02aceec27c0749405a71127096710a.json;
+  it remains unpublished and uninstalled while AgentVoice reruns its live
+  check.
 
 ## History
 
@@ -79,3 +90,6 @@ baseline until the first voice-sidecar candidate has actually passed its gate.
 - 2026-09-04: Rebased both active carries onto current Main, added Codex-parity
   channel selection and delegation-context append, and reviewed the first
   complete active-carry size and dependency budgets.
+- 2026-09-04: Matched Fx's shipped credential-broker schema-1 handshake,
+  request fields, response units, framing limits, and terminal refusal
+  semantics after the first live schema-3 AgentVoice run exposed the mismatch.

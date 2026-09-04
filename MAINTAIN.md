@@ -180,14 +180,23 @@ Workshop commit during the same requested unit of work.
   UID/PID, a one-time instance/session nonce, account, and generation. The
   broker remains separate from ADE telemetry and semantic work control.
 - The broker is one persistent sequential schema-1 channel on the inherited
-  descriptor: length-prefixed frames of at most 64 KiB, one request in flight,
-  every response correlated to its request, and a per-frame deadline so a
-  stalled partial frame fails rather than waits. codex.credential.resolve takes
-  a minimum validity; codex.credential.refresh takes the pinned account ID and
-  prior lease generation. A successful result contains only an access token,
-  account ID, refresh deadline, and process-local generation — no plan
-  metadata, and never a refresh token, serialized session, or store
-  representation.
+  descriptor. Fx first sends exactly one length-prefixed hello containing a
+  schema-1, 48-character hexadecimal nonce; the sidecar consumes and validates
+  it before sending requests and retains the nonce only for that connection.
+  Every request has exactly schema, request_id, nonce, method, and params, and
+  reuses the admitted connection nonce. Frames are at most 64 KiB, only one
+  request is in flight, every response is correlated to its request, and each
+  frame that has begun must finish within five seconds. A stalled or malformed
+  hello or later frame fails closed rather than falling back. The
+  codex.credential.resolve method has exactly one parameter,
+  `minimum_validity_seconds`, set to 313. codex.credential.refresh has exactly
+  `account_id` and `prior_generation`. A successful result contains only an
+  access token, account ID, Unix-seconds `refresh_deadline`, and process-local
+  generation — no plan metadata, and never a refresh token, serialized
+  session, or store representation. The sidecar converts that deadline to its
+  checked millisecond representation. A well-formed `unauthorized` refusal is
+  terminal because Fx closes after writing it; the sidecar poisons the channel
+  and never attempts another request.
 - The sidecar transport depends from its first commit on a narrow asynchronous
   VoiceAuthority-to-RuntimeLease interface. The initial parity carry adapts
   current Codex subscription auth; this follow-up replaces that adapter with a
