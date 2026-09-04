@@ -179,6 +179,12 @@ Workshop commit during the same requested unit of work.
   generic JSON-RPC, or a credential file. Broker admission binds the expected
   UID/PID, a one-time instance/session nonce, account, and generation. The
   broker remains separate from ADE telemetry and semantic work control.
+- AgentVoice creates the broker channel with socketpair(2), sets O_NONBLOCK on
+  both endpoints, and passes each endpoint to Fx and the sidecar as a bare
+  descriptor number. It never wraps either endpoint in a Node stream: even a
+  paused net.Socket may prefetch the hello or later credential bytes into the
+  AgentVoice process and break both the protocol and the opaque-conduit
+  boundary.
 - The broker is one persistent sequential schema-1 channel on the inherited
   descriptor. Fx first sends exactly one length-prefixed hello containing a
   schema-1, 48-character hexadecimal nonce; the sidecar consumes and validates

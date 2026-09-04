@@ -71,8 +71,14 @@ baseline until the first voice-sidecar candidate has actually passed its gate.
 - That exact candidate passed the constrained local gate. Its private
   schema-1 receipt is
   ~/.local/state/codpiece/local-builds/ac90b0fb3c02aceec27c0749405a71127096710a.json;
-  it remains unpublished and uninstalled while AgentVoice reruns its live
-  check.
+  it remains unpublished and uninstalled.
+- AgentVoice's full-stack check passed against that unchanged candidate and Fx
+  aa3c7c55: the schema-1 lease resolved, WebRTC connected, four downlink RTP
+  packets decoded, and 3.6 seconds of audible model speech reached the
+  harness. AgentVoice first corrected its conduit to create nonblocking
+  socketpair endpoints as bare descriptors; its previous paused Node socket
+  had prefetched the 85-byte hello frame and violated the opaque-transfer
+  contract.
 
 ## History
 
