@@ -102,17 +102,22 @@ baseline until the first voice-sidecar candidate has actually passed its gate.
   passed with non-default V3 voice juniper: Fx authorization resolved, WebRTC
   connected, four downlink RTP packets decoded, and 3.5 seconds of audible
   model speech reached the harness. The same check still passed with cove.
-- A real delegation run against e226bd080b proved that AVAS indexes delegation
-  context by the realtime item ID surfaced as `item_id`, not AgentVoice's
-  distinct synthetic `handoff_id`. The sidecar already passed its API field
-  through unchanged; the carry's misleading `handoff-42` test fixtures and the
-  Workshop contract were corrected to name `item_id` explicitly.
+- A real delegation run against e226bd080b proved that AgentVoice's distinct
+  synthetic `handoff_id` is not AVAS's `delegation_item_id`: AVAS refused 15
+  appends carrying those handoff IDs and no backend context reached the voice
+  model. The AVAS item shape and upstream indexing identify the surfaced
+  realtime `item_id` as the required value, so AgentVoice's consumer and the
+  carry's misleading `handoff-42` fixtures were corrected accordingly. Live
+  acceptance of an `item_id` append remains pending a spoken delegation run.
 - The corrected test-only composition at
   76dbcecdb7a6290e775237f3b837abd6f4cad938 retains the 3,651,392-byte and 127
   package budgets and passed the constrained 74-test local gate. Its private
   schema-1 receipt is
   ~/.local/state/codpiece/local-builds/76dbcecdb7a6290e775237f3b837abd6f4cad938.json;
   it remains unpublished and uninstalled.
+- AgentVoice reproduced the 76dbcecdb7 candidate byte-for-byte at SHA-256
+  b2bd8656e6ea11bb40692c99789769b63766be0b8260dc511351547865870fac. Its
+  full-stack check and the spoken delegation proof remain pending.
 
 ## History
 
