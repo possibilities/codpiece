@@ -117,7 +117,11 @@ baseline until the first voice-sidecar candidate has actually passed its gate.
   it remains unpublished and uninstalled.
 - AgentVoice reproduced the 76dbcecdb7 candidate byte-for-byte at SHA-256
   b2bd8656e6ea11bb40692c99789769b63766be0b8260dc511351547865870fac. Its
-  full-stack check and the spoken delegation proof remain pending.
+  full-stack check passed with a non-cove voice: Fx authorization resolved,
+  WebRTC connected, one downlink RTP packet decoded, and 3.5 seconds of audible
+  model speech reached the harness. That check did not exercise delegation;
+  live acceptance of an `item_id` append remains pending the operator's spoken
+  delegation run.
 
 ## History
 
