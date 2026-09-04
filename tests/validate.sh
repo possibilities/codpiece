@@ -227,7 +227,7 @@ jq -e '
       .status == "enforced"))
 ' gate/budgets.json >/dev/null || fail "size/dependency budgets are invalid"
 
-checkout="${CODPIECE_CODEX_CHECKOUT:-$HOME/src/codex}"
+checkout="${CODPIECE_CODEX_CHECKOUT:-$HOME/source/openai--codex}"
 if git -C "$checkout" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     local_carries=$(git -C "$checkout" for-each-ref \
         --format='%(refname:short)' refs/heads/carry/ | LC_ALL=C sort)

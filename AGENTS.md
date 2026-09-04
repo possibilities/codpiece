@@ -23,10 +23,11 @@ SCRATCHPAD.md before changing the fork, its gate, or its installer.
 - tests/validate.sh validates the Workshop machinery; the local-build,
   AgentVoice artifact, and ship gates are the blocking product authorities.
 
-Codex implementation work lives in dedicated worktrees of ~/src/codex, never
-in that bound checkout and never in this Workshop. AgentVoice integration work
-lives in ~/code/agentvoice. The accepted full Codex App-server run there is the
-behavioral oracle until the small sidecar reproduces it.
+Codex implementation work lives in dedicated worktrees of
+~/source/openai--codex, never in that bound checkout and never in this
+Workshop. AgentVoice integration work lives in ~/code/agentvoice. The accepted
+full Codex App-server run there is the behavioral oracle until the small
+sidecar reproduces it.
 
 ## Feature work
 
@@ -66,10 +67,10 @@ refreshes a token, rotates a refresh token, or persists authority.
 
 ## Working topology
 
-Work directly on main in this Workshop. In ~/src/codex, use one dedicated
-worktree per carry and a separate scratch worktree for the exact Integration
-composition. Inventory existing worktrees first and remove only clean
-worktrees created by the current cycle.
+Work directly on main in this Workshop. In ~/source/openai--codex, use one
+dedicated worktree per carry and a separate scratch worktree for the exact
+Integration composition. Inventory existing worktrees first and remove only
+clean worktrees created by the current cycle.
 
 Maintenance owns only Main, Integration, and the carries declared in
 MAINTAIN.md. Every other fork head remains untouched. No branch is deleted or

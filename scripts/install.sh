@@ -47,7 +47,7 @@ case "${1:-}" in
         ;;
 esac
 
-checkout="${CODPIECE_CODEX_CHECKOUT:-$HOME/src/codex}"
+checkout="${CODPIECE_CODEX_CHECKOUT:-$HOME/source/openai--codex}"
 package=codex-voice-sidecar
 install_root="${CODPIECE_INSTALL_ROOT:-$HOME/.local/lib/codpiece}"
 binary_link="${CODPIECE_BINARY_LINK:-$HOME/.local/bin/codex-voice-sidecar}"

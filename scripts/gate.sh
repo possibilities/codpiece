@@ -40,12 +40,12 @@ manifest="$worktree/codex-rs/Cargo.toml"
 candidate_sha=$(git -C "$worktree" rev-parse HEAD)
 codpiece_full_sha "$candidate_sha" || die "HEAD is not a full lowercase commit SHA"
 candidate_tree=$(git -C "$worktree" rev-parse 'HEAD^{tree}')
-upstream_ref=refs/remotes/origin/main
+upstream_ref=refs/remotes/upstream/main
 git -C "$worktree" rev-parse --verify --quiet "$upstream_ref^{commit}" >/dev/null \
-    || die "$worktree has no origin/main tracking commit"
+    || die "$worktree has no upstream/main tracking commit"
 upstream_sha=$(git -C "$worktree" rev-parse "$upstream_ref")
 git -C "$worktree" merge-base --is-ancestor "$upstream_sha" "$candidate_sha" \
-    || die "$candidate_sha does not contain origin/main at $upstream_sha"
+    || die "$candidate_sha does not contain upstream/main at $upstream_sha"
 contract_sha=$(codpiece_gate_contract_digest "$root") \
     || die "could not hash the gate contract"
 if [ -n "${CODPIECE_TARGET_DIR:-}" ]; then
@@ -229,7 +229,7 @@ jq -n \
     --argjson dependencyCount "$dependency_count" \
     --argjson budgetsEnforced "$budgets_enforced" \
     '{schemaVersion:1,status:$status,candidateSha:$candidateSha,
-      candidateTree:$candidateTree,upstream:{ref:"origin/main",sha:$upstreamSha},
+      candidateTree:$candidateTree,upstream:{ref:"upstream/main",sha:$upstreamSha},
       gateContractSha256:$gateContractSha256,
       package:"codex-voice-sidecar",binary:$binary,
       binarySha256:$binarySha256,binaryVersion:$binaryVersion,

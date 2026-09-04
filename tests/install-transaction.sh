@@ -109,7 +109,7 @@ EOF
         --arg metadataSha "$metadata_sha" \
         --arg dependencySha "$dependency_sha" \
         '{schemaVersion:1,status:"local-pass",candidateSha:$sha,
-          candidateTree:$tree,upstream:{ref:"origin/main",sha:$sha},
+          candidateTree:$tree,upstream:{ref:"upstream/main",sha:$sha},
           gateContractSha256:$contract,
           package:"codex-voice-sidecar",binary:"/tmp/codex-voice-sidecar",
           binarySha256:$binarySha,binaryVersion:$binaryVersion,

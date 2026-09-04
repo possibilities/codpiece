@@ -52,7 +52,7 @@ new_fixture() {
     upstream_sha=$(git -C "$seed" rev-parse HEAD)
     git -C "$seed" push --quiet upstream main
 
-    git clone --quiet "$upstream" "$checkout"
+    git clone --quiet --origin upstream "$upstream" "$checkout"
     git -C "$checkout" remote add fork "$fork"
     git -C "$checkout" switch --quiet -c carry/voice-sidecar
     printf 'voice\n' >"$checkout/voice.txt"
@@ -83,7 +83,7 @@ new_fixture() {
         --arg metadataSha "$metadata_sha" \
         --arg dependencySha "$dependency_sha" \
         '{schemaVersion:1,status:"local-pass",candidateSha:$sha,
-          candidateTree:$tree,upstream:{ref:"origin/main",sha:$upstream},
+          candidateTree:$tree,upstream:{ref:"upstream/main",sha:$upstream},
           gateContractSha256:$contract,
           package:"codex-voice-sidecar",binary:"/tmp/codex-voice-sidecar",
           binarySha256:$binarySha,binaryVersion:"codex-voice-sidecar 0.1.0-test",
@@ -165,6 +165,7 @@ printf '%s\n' "$repair_output" | grep -F "REPAIRED-LOCAL $integration_sha" >/dev
 CODPIECE_TESTING=1 \
 CODPIECE_CODEX_CHECKOUT="$checkout" \
 CODPIECE_STATE_DIR="$state" \
+MAINTAIN_UPSTREAM_SHA="$upstream_sha" \
     "$root/scripts/reconcile-branches.sh" --check >/dev/null \
     || fail "normal reconciliation did not accept the bootstrapped topology"
 

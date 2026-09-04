@@ -32,8 +32,8 @@ smaller compile and runtime boundary.
 
 ## Upstream
 
-- Bound checkout: ~/src/codex.
-- Upstream: openai/codex on remote origin.
+- Bound checkout: ~/source/openai--codex.
+- Upstream: openai/codex on remote upstream.
 - Product fork: possibilities/codex on remote fork.
 - Upstream branch: main. The local and fork Main mirrors contain no downstream
   commits.

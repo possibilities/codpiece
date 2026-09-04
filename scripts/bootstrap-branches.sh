@@ -38,7 +38,7 @@ for command in git jq shasum; do
     command -v "$command" >/dev/null 2>&1 || die "$command is required"
 done
 
-checkout="${CODPIECE_CODEX_CHECKOUT:-$HOME/src/codex}"
+checkout="${CODPIECE_CODEX_CHECKOUT:-$HOME/source/openai--codex}"
 test_mode="${CODPIECE_TESTING:-0}"
 case "$test_mode" in 0|1) ;; *) die "CODPIECE_TESTING must be 0 or 1" ;; esac
 
@@ -48,17 +48,17 @@ git -C "$checkout" rev-parse --is-inside-work-tree >/dev/null 2>&1 \
     || die "$checkout has local changes"
 actual_fork=$(git -C "$checkout" remote get-url fork 2>/dev/null) \
     || die "$checkout has no fork remote"
-actual_origin=$(git -C "$checkout" remote get-url origin 2>/dev/null) \
-    || die "$checkout has no origin remote"
+actual_upstream=$(git -C "$checkout" remote get-url upstream 2>/dev/null) \
+    || die "$checkout has no upstream remote"
 if [ "$test_mode" -eq 0 ]; then
     codpiece_remote_matches "$actual_fork" "$CODPIECE_CANONICAL_FORK_URL" \
         || die "$checkout fork remote points at $actual_fork"
-    codpiece_remote_matches "$actual_origin" "$CODPIECE_CANONICAL_UPSTREAM_URL" \
-        || die "$checkout origin remote points at $actual_origin"
+    codpiece_remote_matches "$actual_upstream" "$CODPIECE_CANONICAL_UPSTREAM_URL" \
+        || die "$checkout upstream remote points at $actual_upstream"
 else
     codpiece_require_local_test_remote fork "$actual_fork" \
         || die "test mode remote safety check failed"
-    codpiece_require_local_test_remote origin "$actual_origin" \
+    codpiece_require_local_test_remote upstream "$actual_upstream" \
         || die "test mode remote safety check failed"
 fi
 
@@ -114,8 +114,8 @@ cleanup() {
 trap cleanup EXIT
 
 git init --quiet --bare "$snapshot"
-git --git-dir="$snapshot" fetch --quiet --no-tags "$actual_origin" \
-    '+refs/heads/main:refs/bootstrap/origin/main' \
+git --git-dir="$snapshot" fetch --quiet --no-tags "$actual_upstream" \
+    '+refs/heads/main:refs/bootstrap/upstream/main' \
     || die "could not snapshot upstream main"
 git ls-remote --heads "$actual_fork" \
     | awk -F '\t' '{ sub("^refs/heads/", "", $2); print $2 "\t" $1 }' \
@@ -133,7 +133,7 @@ lookup_remote() {
     ' "$remote_heads"
 }
 
-upstream_sha=$(git --git-dir="$snapshot" rev-parse refs/bootstrap/origin/main)
+upstream_sha=$(git --git-dir="$snapshot" rev-parse refs/bootstrap/upstream/main)
 fork_main_sha=$(lookup_remote main) || die "fork/main is missing"
 remote_integration_sha=$(lookup_remote integration 2>/dev/null || true)
 remote_voice_sha=$(lookup_remote "$voice_branch" 2>/dev/null || true)

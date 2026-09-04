@@ -20,7 +20,7 @@ if [ ! -f "$script" ]; then
     die "the maintain skill is not installed at $skill_dir (run ~/code/agentstart/scripts/sync-skills, or set MAINTAIN_SKILL_DIR)"
 fi
 
-checkout="${CODPIECE_CODEX_CHECKOUT:-$HOME/src/codex}"
+checkout="${CODPIECE_CODEX_CHECKOUT:-$HOME/source/openai--codex}"
 test_mode="${CODPIECE_TESTING:-0}"
 case "$test_mode" in 0|1) ;; *) die "CODPIECE_TESTING must be 0 or 1" ;; esac
 
@@ -35,11 +35,11 @@ esac
 if [ "$declaration_only" -eq 0 ] && [ "$test_mode" -eq 1 ]; then
     actual_fork=$(git -C "$checkout" remote get-url fork 2>/dev/null) \
         || die "$checkout has no fork remote"
-    actual_origin=$(git -C "$checkout" remote get-url origin 2>/dev/null) \
-        || die "$checkout has no origin remote"
+    actual_upstream=$(git -C "$checkout" remote get-url upstream 2>/dev/null) \
+        || die "$checkout has no upstream remote"
     codpiece_require_local_test_remote fork "$actual_fork" \
         || die "test mode remote safety check failed"
-    codpiece_require_local_test_remote origin "$actual_origin" \
+    codpiece_require_local_test_remote upstream "$actual_upstream" \
         || die "test mode remote safety check failed"
 fi
 expected_carries=$(printf '%s\n' 'carry/fx-authorization' 'carry/voice-sidecar')
@@ -67,7 +67,7 @@ export MAINTAIN_CHECKOUT="$checkout"
 export MAINTAIN_FORK_REPO=possibilities/codex
 export MAINTAIN_UPSTREAM_REPO=openai/codex
 export MAINTAIN_FORK_REMOTE=fork
-export MAINTAIN_UPSTREAM_REMOTE=origin
+export MAINTAIN_UPSTREAM_REMOTE=upstream
 export MAINTAIN_MAIN_BRANCH=main
 export MAINTAIN_INTEGRATION_BRANCH=integration
 export MAINTAIN_CARRY_PREFIX=carry/

@@ -23,7 +23,8 @@ baseline until the first voice-sidecar candidate has actually passed its gate.
 
 - carry/voice-sidecar: required and not yet delivered.
 - carry/fx-authorization: implementation retained at 1d9e28b607 in
-  ~/src/codex-codpiece-fx-authorization-20260831; not yet gated or published.
+  the `carry/fx-authorization` ref of `~/source/openai--codex`; not yet gated
+  or published.
 
 ## Current notes
 
