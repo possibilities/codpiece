@@ -21,11 +21,12 @@ baseline until the first voice-sidecar candidate has actually passed its gate.
 
 ## Carried state
 
-- carry/voice-sidecar: current-Main implementation retained at ff3becde65,
-  including session- and delegation-context appends and the complete advertised
-  V3 voice set; not yet published.
+- carry/voice-sidecar: current-Main implementation retained at 245e64a081,
+  including session- and delegation-context appends, the complete advertised
+  V3 voice set, and corrected delegation-item test provenance; not yet
+  published.
 - carry/fx-authorization: recomposed above the current voice carry at
-  e226bd080b, including the hello nonce handshake and exact request/response
+  76dbcecdb7, including the hello nonce handshake and exact request/response
   wire contract; not yet published.
 
 ## Current notes
@@ -101,6 +102,17 @@ baseline until the first voice-sidecar candidate has actually passed its gate.
   passed with non-default V3 voice juniper: Fx authorization resolved, WebRTC
   connected, four downlink RTP packets decoded, and 3.5 seconds of audible
   model speech reached the harness. The same check still passed with cove.
+- A real delegation run against e226bd080b proved that AVAS indexes delegation
+  context by the realtime item ID surfaced as `item_id`, not AgentVoice's
+  distinct synthetic `handoff_id`. The sidecar already passed its API field
+  through unchanged; the carry's misleading `handoff-42` test fixtures and the
+  Workshop contract were corrected to name `item_id` explicitly.
+- The corrected test-only composition at
+  76dbcecdb7a6290e775237f3b837abd6f4cad938 retains the 3,651,392-byte and 127
+  package budgets and passed the constrained 74-test local gate. Its private
+  schema-1 receipt is
+  ~/.local/state/codpiece/local-builds/76dbcecdb7a6290e775237f3b837abd6f4cad938.json;
+  it remains unpublished and uninstalled.
 
 ## History
 
@@ -124,3 +136,6 @@ baseline until the first voice-sidecar candidate has actually passed its gate.
 - 2026-09-04: Replaced the historical cove-only start pin with validation
   against the full voice set advertised for V3, while retaining the fixed model
   and all other accepted session constraints.
+- 2026-09-04: Corrected the delegation-context contract and carry test fixtures
+  to identify AVAS's realtime item ID as `delegation_item_id`, distinct from
+  AgentVoice's synthetic handoff ID.
