@@ -147,11 +147,14 @@ Workshop commit during the same requested unit of work.
 - Client-managed delegation is intrinsic. Raw handoff requests remain visible,
   but no switch can enable automatic Codex delegation or transcript-tail
   routing.
-- The accepted session identity is voice protocol V3,
-  gpt-live-1-codex, voice cove, client delegation enabled, and acknowledgement
-  filler disabled. The public compatibility request rejects a caller-supplied
-  model; the sidecar itself sends the private V3 model `gpt-live-1-codex` in
-  the AVAS session body, matching the reference implementation.
+- The accepted session identity is voice protocol V3, gpt-live-1-codex, any
+  voice advertised in `RealtimeVoicesList::builtin().v1`, client delegation
+  enabled, and acknowledgement filler disabled. The V3 start validator accepts
+  exactly that advertised nine-voice V1 set and rejects V2-only voices. Cove is
+  the timbre captured in the reference oracle, not a fixed product constraint.
+  The public compatibility request rejects a caller-supplied model; the sidecar
+  itself sends the private V3 model `gpt-live-1-codex` in the AVAS session body,
+  matching the reference implementation.
 - Wrong session identifiers, speech before start, speech after stop, duplicate
   starts, and malformed sideband events fail clearly and do not create work.
   Reconnection never duplicates a handoff. Requested shutdown emits exactly

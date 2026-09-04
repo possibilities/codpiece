@@ -21,10 +21,11 @@ baseline until the first voice-sidecar candidate has actually passed its gate.
 
 ## Carried state
 
-- carry/voice-sidecar: current-Main implementation retained at 1c82d0c2a9,
-  including session- and delegation-context appends; not yet published.
-- carry/fx-authorization: current Fx broker schema-1 implementation retained at
-  ac90b0fb3c, including the hello nonce handshake and exact request/response
+- carry/voice-sidecar: current-Main implementation retained at ff3becde65,
+  including session- and delegation-context appends and the complete advertised
+  V3 voice set; not yet published.
+- carry/fx-authorization: recomposed above the current voice carry at
+  e226bd080b, including the hello nonce handshake and exact request/response
   wire contract; not yet published.
 
 ## Current notes
@@ -42,8 +43,9 @@ baseline until the first voice-sidecar candidate has actually passed its gate.
   opaque and has no safe runtime lease endpoint. Codpiece's paired planned
   follow-up is carry/fx-authorization; neither becomes active before voice
   parity.
-- The reference oracle uses voice protocol V3, gpt-live-1-codex, voice cove,
-  intrinsic client delegation, and acknowledgement filler disabled.
+- The reference oracle uses voice protocol V3, gpt-live-1-codex, intrinsic
+  client delegation, and acknowledgement filler disabled. It was captured with
+  voice cove; the product accepts all nine voices it advertises for V3.
 - Constrained Rust builds are mandatory: at most two Cargo jobs, release LTO
   disabled, one release codegen unit, stripped packaged symbols, and
   Scratch-backed target data.
@@ -79,6 +81,19 @@ baseline until the first voice-sidecar candidate has actually passed its gate.
   socketpair endpoints as bare descriptors; its previous paused Node socket
   had prefetched the 85-byte hello frame and violated the opaque-transfer
   contract.
+- The advertised-V3-voice composition at
+  e226bd080bcf936c4aa2b2090bec00ad7e82d33d measures 3,651,392 binary bytes
+  and 127 unique normal/build packages. The reviewed 16-byte growth makes the
+  V3 start validator consume the same nine-voice V1 list returned by
+  thread/realtime/listVoices; no dependency changed.
+- That exact composition passed the constrained local gate. Its private
+  schema-1 receipt is
+  ~/.local/state/codpiece/local-builds/e226bd080bcf936c4aa2b2090bec00ad7e82d33d.json;
+  it remains unpublished and uninstalled.
+- AgentVoice reproduced that binary byte-for-byte and its full-stack check
+  passed with non-default V3 voice juniper: Fx authorization resolved, WebRTC
+  connected, four downlink RTP packets decoded, and 3.5 seconds of audible
+  model speech reached the harness. The same check still passed with cove.
 
 ## History
 
@@ -99,3 +114,6 @@ baseline until the first voice-sidecar candidate has actually passed its gate.
 - 2026-09-04: Matched Fx's shipped credential-broker schema-1 handshake,
   request fields, response units, framing limits, and terminal refusal
   semantics after the first live schema-3 AgentVoice run exposed the mismatch.
+- 2026-09-04: Replaced the historical cove-only start pin with validation
+  against the full voice set advertised for V3, while retaining the fixed model
+  and all other accepted session constraints.
