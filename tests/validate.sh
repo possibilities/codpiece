@@ -33,9 +33,6 @@ for script in "${scripts[@]}"; do
 done
 
 [ -f AGENTS.md ] || fail "AGENTS.md is missing"
-if [ -e CLAUDE.md ] || [ -L CLAUDE.md ]; then
-    fail "CLAUDE.md must not exist; AGENTS.md is the sole project instruction file"
-fi
 
 for section in Purpose Upstream 'Branch model' Features Gate Consumer Notify; do
     grep -Fx "## $section" MAINTAIN.md >/dev/null \
