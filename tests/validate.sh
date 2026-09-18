@@ -32,8 +32,10 @@ for script in "${scripts[@]}"; do
     [ -x "$script" ] || fail "$script is not executable"
 done
 
-[ "$(readlink CLAUDE.md)" = AGENTS.md ] \
-    || fail "CLAUDE.md must link to AGENTS.md"
+[ -f AGENTS.md ] || fail "AGENTS.md is missing"
+if [ -e CLAUDE.md ] || [ -L CLAUDE.md ]; then
+    fail "CLAUDE.md must not exist; AGENTS.md is the sole project instruction file"
+fi
 
 for section in Purpose Upstream 'Branch model' Features Gate Consumer Notify; do
     grep -Fx "## $section" MAINTAIN.md >/dev/null \
